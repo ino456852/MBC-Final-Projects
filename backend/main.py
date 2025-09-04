@@ -12,12 +12,11 @@ async def lifespan(app: FastAPI):
     yield
     MongoDB.close()
 
-# FastAPI 앱 생성
 app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["localhost"],  # 리액트 앱 도메인
+    allow_origins=["http://localhost:5173"],  # 리액트 앱 도메인
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

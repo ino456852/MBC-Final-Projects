@@ -1,6 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from .config import config
-from .logger import log
+from config import config
 
 class MongoDB:
     _client: AsyncIOMotorClient | None = None
@@ -12,7 +11,7 @@ class MongoDB:
         if cls._client is None:
             cls._client = AsyncIOMotorClient(config.MONGO_URI)
             cls._db = cls._client[config.MONGO_DB_NAME]
-            log.info("✅ MongoDB connected")
+            print("✅ MongoDB connected")
 
     @classmethod
     def close(cls):
@@ -21,7 +20,7 @@ class MongoDB:
             cls._client.close()
             cls._client = None
             cls._db = None
-            log.info("🛑 MongoDB connection closed")
+            print("🛑 MongoDB connection closed")
 
     @classmethod
     def get_database(cls) -> AsyncIOMotorDatabase:
@@ -29,3 +28,7 @@ class MongoDB:
         if cls._db is None:
             raise RuntimeError("❌ MongoDB not connected. Did you forget to call MongoDB.connect()?")  
         return cls._db
+    
+if __name__ == '__main__':
+    print('MONGO DB 테스트:')
+    MongoDB.connect()
