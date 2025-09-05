@@ -1,14 +1,15 @@
 from datetime import datetime, timedelta, timezone
 import re
+from typing import Dict, Optional, Union
 from uuid import uuid4
-from fastapi import HTTPException
+from fastapi import HTTPException, Request, WebSocket
 from passlib.context import CryptContext
 from domains.users.schemes.user_info import UserInfo
 from core.database import MongoDB
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SESSION_TTL = 3600  # 1 hour
-
+SESSION_ID_PATTERN = re.compile(r"session_id=([^;]+)")
 
 def hash_password(password: str) -> str:
     """
@@ -57,16 +58,6 @@ async def create_session(user_id: str) -> str:
     return session_id
 
 
-def get_session_id(cookie_header: str) -> str | None:
-    """
-    cookie_header에서 session_id 값만 추출
-    """
-    match = re.search(r"session_id=([^;]+)", cookie_header)
-    if match:
-        return match.group(1)
-    return None
-
-
 async def get_user_info(session_id: str | None) -> UserInfo:
     """
     현재 로그인한 사용자의 정보를 반환합니다.
@@ -78,7 +69,7 @@ async def get_user_info(session_id: str | None) -> UserInfo:
         UserInfo: 현재 로그인한 사용자의 정보
     """
     if not session_id:
-        raise HTTPException(status_code=401, detail="No session provided")
+        return None
 
     session = await MongoDB.get_database().sessions.find_one({
         "_id": session_id,
@@ -86,11 +77,36 @@ async def get_user_info(session_id: str | None) -> UserInfo:
     })
 
     if not session:
-        raise HTTPException(status_code=401, detail="Invalid or expired session")
+        return None
 
     user = await MongoDB.get_database().users.find_one({"_id": session["user_id"]})
 
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        return None
 
     return UserInfo(**user)
+
+async def get_session_id(conn: Union[WebSocket, Request]) -> str:
+    """
+    WebSocket 또는 HTTP Request에서 쿠키를 읽어
+    채팅 가능한 사용자인지 검증하고 session_id와 사용자 정보 반환.
+    인증 실패 시 None 반환.
+    """
+    try:
+        headers = conn.headers  # WebSocket도 request와 동일하게 headers 속성 있음
+        cookie_header = headers.get("cookie", "")
+        match = SESSION_ID_PATTERN.search(cookie_header)
+        
+        if not match:
+            return None
+
+        session_id = match.group(1)
+
+        user_info = get_user_info(session_id)
+        if not user_info:
+            return None
+
+        return session_id
+
+    except Exception:
+        return None
