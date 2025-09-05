@@ -4,4 +4,3 @@ class User(BaseModel):
     username: str
     password: str
     email: str
-    point: int = 0

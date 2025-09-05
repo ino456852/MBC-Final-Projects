@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from typing import Dict
+from typing import Dict, List
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -43,6 +43,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 class ChatRoomManager:
     _sockets: Dict[str, WebSocket] = {}
+    _messages: List[str] = [] # 테스트용으로 깔아둔거 추후 db에 대화기록 저장할 예정
     _lock = asyncio.Lock()
 
     @classmethod
@@ -59,6 +60,9 @@ class ChatRoomManager:
 
             await ws.accept()
             cls._sockets[session_id] = ws
+            
+            for msg in cls._messages:
+                await ws.send_text(msg)
 
     @classmethod
     async def disconnect(cls, session_id: str):
@@ -75,6 +79,8 @@ class ChatRoomManager:
         async with cls._lock:
             sockets = list(cls._sockets.items())  # 복사본
         dc_users = []
+        
+        cls._messages.append(message)
         for session_id, ws in sockets:
             try:
                 await ws.send_text(message)
