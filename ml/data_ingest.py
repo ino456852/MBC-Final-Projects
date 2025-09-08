@@ -1,3 +1,4 @@
+from typing import Optional
 import yfinance as yf
 import pandas_datareader.data as web
 from datetime import datetime, timedelta
@@ -68,33 +69,44 @@ def insert_with_ecos(
     stat_code: str,
     interval: str,
     code: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
 ):
+    if interval == "D":
+        date_format = "%Y%m%d"
+    elif interval == "M":
+        date_format = "%Y%m"
+
     latest_doc = collection.find_one(
         sort=[("date", -1)], projection={"date": 1, "_id": 0}
     )
 
-    # MongoDB에 저장된 마지막 날짜 이후부터 가져오기
-    # 컬렉션이 없거나 비어있으면 10년 전부터 가져오기
-    if interval == "D":
-        date_format = "%Y%m%d"
-        if latest_doc:
-            start_date = latest_doc["date"] + timedelta(days=1)
-            start_date = start_date.strftime(date_format)
-        else:
-            start_date = "20150901"
-    elif interval == "M":
-        date_format = "%Y%m"
-        if latest_doc:
-            year = latest_doc["date"].year
-            month = latest_doc["date"].month + 1
-            if month > 12:
-                month = 1
-                year += 1
-            start_date = f"{year}{month:02d}"
-        else:
-            start_date = "201509"
+    if not start_date:
+        # MongoDB에 저장된 마지막 날짜 이후부터 가져오기
+        # 컬렉션이 없거나 비어있으면 10년 전부터 가져오기
+        if interval == "D":
+            if latest_doc:
+                start_date = latest_doc["date"] + timedelta(days=1)
+                start_date = start_date.strftime(date_format)
+            else:
+                start_date = "20150901"
+        elif interval == "M":
+            if latest_doc:
+                year = latest_doc["date"].year
+                month = latest_doc["date"].month + 1
+                if month > 12:
+                    month = 1
+                    year += 1
+                start_date = f"{year}{month:02d}"
+            else:
+                start_date = "201509"
+    elif latest_doc:
+        if latest_doc["date"] >= datetime.strptime(start_date, "%Y%m%d"):
+            return
 
-    end_date = datetime.today().strftime(date_format)
+    if not end_date:
+        end_date = datetime.today().strftime(date_format)
+
     url = f"https://ecos.bok.or.kr/api/StatisticSearch/{api_key}/json/kr/1/5000/{stat_code}/{interval}/{start_date}/{end_date}/{code}"
 
     response = httpx.get(url)

@@ -97,17 +97,20 @@ if __name__ == "__main__":
         value_name="cny",
         api_key=eco_api_key,
         stat_code="731Y001",
+        start_date="20160101",
         interval="D",
         code="0000053",
     )
 
-    save_log("cny_usd")
+    save_log("usd_cny")
     # CNY/USD (15.09.01 ~ 15.12.31)
     insert_with_ecos(
-        db["cny_usd"],
-        value_name="cny_usd",
+        db["usd_cny"],
+        value_name="usd_cny",
         api_key=eco_api_key,
         stat_code="731Y002",
+        start_date="20150901",
+        end_date="20151231",
         interval="D",
         code="0000027",
     )
