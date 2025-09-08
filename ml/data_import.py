@@ -13,5 +13,4 @@ def import_from_db(collection: Collection) -> pd.DataFrame:
 
     df = pd.DataFrame(data)
     df.sort_values("date", inplace=True)  # 날짜 순으로 정렬
-    print(df.tail())
     return df
