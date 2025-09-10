@@ -1,18 +1,19 @@
-from datetime import datetime, timedelta, timezone
+import json
+from modules.logger import log
 import re
 from typing import Union
 from uuid import uuid4
 from fastapi import Request, WebSocket
 from passlib.context import CryptContext
 from domains.users.schemes.user_info import UserInfo
-from modules.database import MongoDB
+from modules.database import MongoDB, Redis
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SESSION_TTL = 3600  # 1 hour
 SESSION_ID_PATTERN = re.compile(r"session_id=([^;]+)")
 
 
-def hash_password(password: str) -> str:
+def hash_password(password: str) -> str | None:
     """
     비밀번호를 해시합니다.
 
@@ -22,7 +23,11 @@ def hash_password(password: str) -> str:
     Returns:
         str: 해시된 비밀번호
     """
-    return pwd_context.hash(password)
+    try:
+        return pwd_context.hash(password)
+    except Exception as e:
+        log.error(e)
+        return None
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -36,76 +41,83 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         bool: 일치 여부
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception as e:
+        log.error(e)
+        return False
 
 
-async def create_session(user_id: str) -> str:
+async def create_session(user_info: UserInfo) -> str | None:
     """
-    사용자 세션을 생성하고 MongoDB에 저장합니다.
+    사용자 세션을 생성하고 Redis에 저장합니다.
 
     Args:
-        user_id (str): 사용자 ID
+        user_info (UserInfo): 사용자 ID
 
     Returns:
         str: 세션 ID
     """
-    session_id = str(uuid4())
-    expires_at = datetime.now(timezone.utc) + timedelta(seconds=SESSION_TTL)
-    await MongoDB.get_database().sessions.insert_one(
-        {"_id": session_id, "user_id": user_id, "expires_at": expires_at}
-    )
-    return session_id
+    
+    try:
+        session_id = str(uuid4())
+        redis = Redis.get_client()
+
+        await redis.set(f"session:{session_id}", json.dumps(user_info.model_dump()), ex=SESSION_TTL)
+        return session_id
+    except Exception as e:
+        log.error(e)
+        return None
 
 
-async def get_user_info(session_id: str | None) -> UserInfo:
+async def get_user_info(session_id: str) -> UserInfo | None:
     """
-    현재 로그인한 사용자의 정보를 반환합니다.
+    클라이언트 연결(WebSocket 또는 HTTP Request)에서 세션 ID를 추출하고,
+    Redis에서 세션 정보를 조회하여 로그인한 사용자의 정보를 반환합니다.
 
     Args:
-        session_id (str | None): 클라이언트 쿠키에 저장된 세션 ID
+        conn (WebSocket | Request): 클라이언트 연결 객체
 
     Returns:
-        UserInfo: 현재 로그인한 사용자의 정보
-    """
-    if not session_id:
-        return None
-
-    session = await MongoDB.get_database().sessions.find_one(
-        {"_id": session_id, "expires_at": {"$gt": datetime.now(timezone.utc)}}
-    )
-
-    if not session:
-        return None
-
-    user = await MongoDB.get_database().users.find_one({"_id": session["user_id"]})
-
-    if not user:
-        return None
-
-    return UserInfo(**user)
-
-
-async def get_session_id(conn: Union[WebSocket, Request]) -> str:
-    """
-    WebSocket 또는 HTTP Request에서 쿠키를 읽어
-    채팅 가능한 사용자인지 검증하고 session_id와 사용자 정보 반환.
-    인증 실패 시 None 반환.
+        UserInfo | None: 로그인한 사용자의 정보,
+                         세션이 없거나 만료되었거나 사용자가 존재하지 않으면 None
     """
     try:
+        if not session_id:
+            return None
+        
+        redis = Redis.get_client()
+        
+        user_info_json = await redis.get(f"session:{session_id}")  # Redis에서 세션 조회
+        if not user_info_json:
+            return None
+        
+        data = json.loads(user_info_json)
+        
+        return UserInfo(**data)
+    except Exception as e:
+        log.error(e)
+        return None
+    
+async def get_session_id(conn: Union[WebSocket, Request]) -> str | None:
+    try:
+        
         headers = conn.headers  # WebSocket도 request와 동일하게 headers 속성 있음
         cookie_header = headers.get("cookie", "")
         match = SESSION_ID_PATTERN.search(cookie_header)
-
+            
         if not match:
             return None
-
+        
         session_id = match.group(1)
-
-        user_info = get_user_info(session_id)
-        if not user_info:
-            return None
-
         return session_id
-
-    except Exception:
+    
+    except Exception as e:
+        log.error(e)
         return None
+    
+async def refresh_session(session_id: str):
+    redis = Redis.get_client()
+    exists = await redis.exists(f"session:{session_id}")
+    if exists:
+        await redis.expire(f"session:{session_id}", SESSION_TTL)

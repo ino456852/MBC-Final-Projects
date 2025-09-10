@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Cookie, HTTPException, Response
-from modules.database import MongoDB
+from domains.users.schemes.user_info import UserInfo
+from modules.database import MongoDB, Redis
 from domains.auth.shcemes.login_request import LoginRequest
 from domains.auth.services.auth_service import (
     SESSION_TTL,
@@ -25,10 +26,15 @@ async def login_user(login_request: LoginRequest, response: Response) -> dict:
     user = await MongoDB.get_database().users.find_one(
         {"username": login_request.username}
     )
+    
     if not user or not verify_password(login_request.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid username or password")
-
-    session_id = await create_session(user["_id"])
+    
+    user_info = UserInfo(
+        uid=str(user["_id"]),
+        username=user["username"]
+    )
+    session_id = await create_session(user_info=user_info)
 
     response.set_cookie(
         key="session_id",
@@ -56,9 +62,11 @@ async def logout_user(response: Response, session_id: str = Cookie(None)) -> dic
     """
     if not session_id:
         raise HTTPException(status_code=400, detail="No session provided")
-
-    result = await MongoDB.get_database().sessions.delete_one({"_id": session_id})
-    if result.deleted_count == 0:
+    
+    redis = Redis.get_client()
+    deleted = await redis.delete(f"session:{session_id}")
+    
+    if deleted == 0:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
 
     response.delete_cookie(key="session_id", httponly=True, secure=True, samesite="lax")
