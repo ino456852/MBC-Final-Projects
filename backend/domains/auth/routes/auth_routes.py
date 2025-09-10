@@ -1,19 +1,24 @@
 from fastapi import APIRouter, Cookie, HTTPException, Response
-from core.database import MongoDB
+from modules.database import MongoDB
 from domains.auth.shcemes.login_request import LoginRequest
-from domains.auth.services.auth_service import SESSION_TTL, create_session, verify_password
+from domains.auth.services.auth_service import (
+    SESSION_TTL,
+    create_session,
+    verify_password,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
 
 @router.post("/login")
 async def login_user(login_request: LoginRequest, response: Response) -> dict:
     """
     사용자 로그인 처리 함수
-    
+
     Args:
         login_request (LoginRequest): 로그인 요청 데이터
         response (Response): FastAPI Response 객체
-    
+
     Returns:
         dict: 로그인 성공 메시지
     """
@@ -41,11 +46,11 @@ async def login_user(login_request: LoginRequest, response: Response) -> dict:
 async def logout_user(response: Response, session_id: str = Cookie(None)) -> dict:
     """
     사용자 로그아웃 처리 함수
-    
+
     Args:
         response (Response): FastAPI Response 객체
         session_id (str, optional): 쿠키에서 전달된 세션 ID
-    
+
     Returns:
         dict: 로그아웃 성공 메시지
     """
@@ -56,11 +61,6 @@ async def logout_user(response: Response, session_id: str = Cookie(None)) -> dic
     if result.deleted_count == 0:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
 
-    response.delete_cookie(
-        key="session_id",
-        httponly=True,
-        secure=True,
-        samesite="lax"
-    )
+    response.delete_cookie(key="session_id", httponly=True, secure=True, samesite="lax")
 
     return {"message": "Logout successful"}

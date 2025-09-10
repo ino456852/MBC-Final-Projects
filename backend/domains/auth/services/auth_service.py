@@ -1,15 +1,16 @@
 from datetime import datetime, timedelta, timezone
 import re
-from typing import Dict, Optional, Union
+from typing import Union
 from uuid import uuid4
-from fastapi import HTTPException, Request, WebSocket
+from fastapi import Request, WebSocket
 from passlib.context import CryptContext
 from domains.users.schemes.user_info import UserInfo
-from core.database import MongoDB
+from modules.database import MongoDB
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SESSION_TTL = 3600  # 1 hour
 SESSION_ID_PATTERN = re.compile(r"session_id=([^;]+)")
+
 
 def hash_password(password: str) -> str:
     """
@@ -50,11 +51,9 @@ async def create_session(user_id: str) -> str:
     """
     session_id = str(uuid4())
     expires_at = datetime.now(timezone.utc) + timedelta(seconds=SESSION_TTL)
-    await MongoDB.get_database().sessions.insert_one({
-        "_id": session_id,
-        "user_id": user_id,
-        "expires_at": expires_at
-    })
+    await MongoDB.get_database().sessions.insert_one(
+        {"_id": session_id, "user_id": user_id, "expires_at": expires_at}
+    )
     return session_id
 
 
@@ -71,10 +70,9 @@ async def get_user_info(session_id: str | None) -> UserInfo:
     if not session_id:
         return None
 
-    session = await MongoDB.get_database().sessions.find_one({
-        "_id": session_id,
-        "expires_at": {"$gt": datetime.now(timezone.utc)}
-    })
+    session = await MongoDB.get_database().sessions.find_one(
+        {"_id": session_id, "expires_at": {"$gt": datetime.now(timezone.utc)}}
+    )
 
     if not session:
         return None
@@ -86,6 +84,7 @@ async def get_user_info(session_id: str | None) -> UserInfo:
 
     return UserInfo(**user)
 
+
 async def get_session_id(conn: Union[WebSocket, Request]) -> str:
     """
     WebSocket 또는 HTTP Request에서 쿠키를 읽어
@@ -96,7 +95,7 @@ async def get_session_id(conn: Union[WebSocket, Request]) -> str:
         headers = conn.headers  # WebSocket도 request와 동일하게 headers 속성 있음
         cookie_header = headers.get("cookie", "")
         match = SESSION_ID_PATTERN.search(cookie_header)
-        
+
         if not match:
             return None
 

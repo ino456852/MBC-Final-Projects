@@ -4,15 +4,17 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from domains.auth.services.auth_service import get_session_id, get_user_info
-from core.database import MongoDB
+from modules.database import MongoDB
 from domains.auth.routes.auth_routes import router as auth_router
 from domains.users.routes.user_routes import router as users_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     MongoDB.connect()
     yield
     MongoDB.close()
+
 
 app = FastAPI(lifespan=lifespan)
 
@@ -24,16 +26,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
-        status_code=exc.status_code,
-        content={"status": "error", "message": exc.detail}
+        status_code=exc.status_code, content={"status": "error", "message": exc.detail}
     )
-    
+
+
 app.include_router(auth_router)
 app.include_router(users_router)
-
 
 
 # 아래부터는 채팅방 테스트입니다
@@ -41,9 +43,10 @@ app.include_router(users_router)
 import asyncio
 from fastapi import WebSocket, WebSocketDisconnect
 
+
 class ChatRoomManager:
     _sockets: Dict[str, WebSocket] = {}
-    _messages: List[str] = [] # 테스트용으로 깔아둔거 추후 db에 대화기록 저장할 예정
+    _messages: List[str] = []  # 테스트용으로 깔아둔거 추후 db에 대화기록 저장할 예정
     _lock = asyncio.Lock()
 
     @classmethod
@@ -55,12 +58,12 @@ class ChatRoomManager:
             if old_ws:
                 try:
                     await old_ws.close(code=1000)
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Error: {e}")
 
             await ws.accept()
             cls._sockets[session_id] = ws
-            
+
             for msg in cls._messages:
                 await ws.send_text(msg)
 
@@ -71,15 +74,15 @@ class ChatRoomManager:
         if ws:  # 락 해제 후 close (안 막히게)
             try:
                 await ws.close()
-            except:
-                pass
+            except Exception as e:
+                print(f"Error: {e}")
 
     @classmethod
     async def broadcast(cls, message: str):
         async with cls._lock:
             sockets = list(cls._sockets.items())  # 복사본
         dc_users = []
-        
+
         cls._messages.append(message)
         for session_id, ws in sockets:
             try:
@@ -98,25 +101,26 @@ async def chat(ws: WebSocket):
     if not user_info:
         await ws.close(code=4001)
         return
-    
+
     await ChatRoomManager.connect(ws=ws, session_id=session_id)
-    
+
     try:
-        while True:    
+        while True:
             data = await ws.receive_text()
-            
+
             user_info = await get_user_info(session_id=session_id)
-            
+
             if not user_info:
                 await ChatRoomManager.disconnect(session_id=session_id)
                 return
-            
+
             await ChatRoomManager.broadcast(f"{user_info.username}: {data}")
     except WebSocketDisconnect:
         await ChatRoomManager.disconnect(session_id=session_id)
-        
-        
+
+
 from fastapi.responses import HTMLResponse
+
 
 @app.get("/chat")
 async def chat_page():
