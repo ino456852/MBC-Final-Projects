@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Cookie, HTTPException, Response
 from domains.users.schemes.user_info import UserInfo
-from modules.database import MongoDB, Redis
-from domains.auth.shcemes.login_request import LoginRequest
-from domains.auth.services.auth_service import (
+from modules.mongodb import MongoDB
+from modules.redis import Redis
+from domains.users.schemes.login_request import LoginRequest
+from domains.users.services.auth_service import (
     SESSION_TTL,
     create_session,
     verify_password,
