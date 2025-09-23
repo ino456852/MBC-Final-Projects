@@ -5,60 +5,83 @@ import pandas as pd
 import tensorflow as tf
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-from .preprocessing import (
-    get_data, add_moving_averages, create_sequences, scale_data,
-    TARGETS, BASE_FEATURES, LOOK_BACK
+from .constatnt import (
+    MA_PERIODS,
+    PRED_CSV_PTH,
+    MODEL_DIR,
+    TARGETS,
+    BASE_FEATURES,
+    LOOK_BACK,
+)
+
+from .preprocess import (
+    get_procceed_data,
+    create_sequences,
+    scale_data,
 )
 from .model import build_model
 
-MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models')
-os.makedirs(MODEL_DIR, exist_ok=True)
-
 
 def train_and_predict_future(best_params=None):
-    if best_params is None:
-        best_params = {
-            'units': 128, 'lr': 0.001, 'dropout': 0.3, 'bidirectional': True
-        }
+    os.makedirs(MODEL_DIR, exist_ok=True)
 
-    data = get_data()
+    if best_params is None:
+        best_params = {"units": 128, "lr": 0.001, "dropout": 0.3, "bidirectional": True}
+
+    data = get_procceed_data()
     all_predictions = {}
-    seq_len = LOOK_BACK
-    split_date = '2024-01-01'
+    split_date = "2024-01-01"
 
     for target in TARGETS:
         print(f"\n[{target.upper()}] 모델 학습 시작...")
 
-        target_data = data.copy()
-        target_data = add_moving_averages(target_data, target)
-        features = BASE_FEATURES + [f'{target}_MA{p}' for p in [5, 20, 60, 120]]
+        target_data = data
+        features = BASE_FEATURES + [f"{target}_MA{p}" for p in MA_PERIODS]
         subset = target_data[features + [target]]
 
         train_data = subset[subset.index < split_date]
         test_data = subset[subset.index >= split_date]
 
-        X_train, y_train, X_test, y_test, scaler_X, scaler_y = scale_data(train_data, test_data, features, target)
-
-        X_train_seq, y_train_seq = create_sequences(X_train, y_train, seq_len)
-
-        model = build_model(seq_len, len(features), best_params)
-        early_stop = tf.keras.callbacks.EarlyStopping(
-            monitor='loss', patience=10, restore_best_weights=True, verbose=0
+        X_train, y_train, X_test, y_test, scaler_X, scaler_y = scale_data(
+            train_data, test_data, features, target
         )
 
-        model.fit(X_train_seq, y_train_seq, epochs=100, batch_size=32, callbacks=[early_stop], verbose=0)
+        X_train_seq, y_train_seq = create_sequences(X_train, y_train, LOOK_BACK)
+
+        model = build_model(LOOK_BACK, len(features), best_params)
+        early_stop = tf.keras.callbacks.EarlyStopping(
+            monitor="loss", patience=10, restore_best_weights=True, verbose=0
+        )
+
+        model.fit(
+            X_train_seq,
+            y_train_seq,
+            epochs=100,
+            batch_size=32,
+            callbacks=[early_stop],
+            verbose=0,
+        )
 
         # 저장
-        model.save(os.path.join(MODEL_DIR, f'model_{target}.keras'))
-        with open(os.path.join(MODEL_DIR, f'scaler_{target}.pkl'), 'wb') as f:
-            pickle.dump({'feature_scaler': scaler_X, 'target_scaler': scaler_y, 'features': features}, f)
+        model.save(os.path.join(MODEL_DIR, f"model_{target}.keras"))
+        with open(os.path.join(MODEL_DIR, f"scaler_{target}.pkl"), "wb") as f:
+            pickle.dump(
+                {
+                    "feature_scaler": scaler_X,
+                    "target_scaler": scaler_y,
+                    "features": features,
+                },
+                f,
+            )
 
         # 예측
         predictions = []
-        current_sequence = X_train[-seq_len:]
+        current_sequence = X_train[-LOOK_BACK:]
 
         for i in range(len(test_data)):
-            pred_scaled = model.predict(current_sequence.reshape(1, seq_len, len(features)), verbose=0)
+            pred_scaled = model.predict(
+                current_sequence.reshape(1, LOOK_BACK, len(features)), verbose=0
+            )
             pred_value = scaler_y.inverse_transform(pred_scaled)[0, 0]
             predictions.append(pred_value)
 
@@ -67,9 +90,9 @@ def train_and_predict_future(best_params=None):
                 current_sequence[-1] = X_test[i]
 
         all_predictions[target] = {
-            'dates': test_data.index,
-            'actual': y_test,
-            'predicted': predictions
+            "dates": test_data.index,
+            "actual": y_test,
+            "predicted": predictions,
         }
 
         mae = mean_absolute_error(y_test, predictions)
@@ -79,12 +102,11 @@ def train_and_predict_future(best_params=None):
 
     result_df = pd.DataFrame(index=test_data.index)
     for target in TARGETS:
-        result_df[f'Actual_{target.upper()}'] = all_predictions[target]['actual']
-        result_df[f'Predicted_{target.upper()}'] = all_predictions[target]['predicted']
+        result_df[f"Actual_{target.upper()}"] = all_predictions[target]["actual"]
+        result_df[f"Predicted_{target.upper()}"] = all_predictions[target]["predicted"]
 
-    csv_path = os.path.join(MODEL_DIR, '2024_predictions.csv')
-    result_df.to_csv(csv_path)
-    print(f"\n✅ 예측 결과 저장 완료: {csv_path}")
+    result_df.to_csv(PRED_CSV_PTH)
+    print(f"\n✅ 예측 결과 저장 완료: {PRED_CSV_PTH}")
 
     return result_df
 
