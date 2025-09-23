@@ -5,14 +5,14 @@ import tensorflow as tf
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_percentage_error
 from typing import Optional, Tuple
-from constant import TARGETS, FEATURES, LOOK_BACK, MODEL_DIR, KERAS_FILE_TEMPLATE
-from preprocess import (
+from .constant import TARGETS, FEATURES, LOOK_BACK, MODEL_DIR, KERAS_FILE_TEMPLATE
+from .preprocess import (
     add_moving_average_features,
     create_sequences,
     filter_dataframe,
     load_preprocess_data,
 )
-from model import Attention
+from ..attention_lstm_rolling_new.model import Attention
 
 
 def evaluate_predictions(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
@@ -104,3 +104,41 @@ def get_predictions(
 
     metrics = evaluate_predictions(y_true_inv, y_pred_inv)
     return y_true_inv, y_pred_inv, dates, metrics
+
+
+def predict_next_day(data: pd.DataFrame) -> dict:
+    """
+    각 target(usd, eur, gbp, cny, jpy)에 대해 다음 날 환율을 예측합니다.
+    Args:
+        data (pd.DataFrame): 예측에 사용할 데이터프레임 (index: datetime, columns: features + target)
+    Returns:
+        dict: {target: 예측값(float)} 형태의 딕셔너리
+    """
+    # 모델, 스케일러, feature 목록 로드
+    _, models, scalers, features_map = load_models_and_scalers()
+    results = {}
+    for target in TARGETS:
+        # feature 생성 및 결측치 제거
+        df = add_moving_average_features(data.copy(), target)
+        features = features_map[target]
+        df = df.dropna(subset=features + [target])
+        if len(df) < LOOK_BACK:
+            results[target] = None
+            continue
+        # 입력 데이터 스케일링
+        input_data = scalers[target]["feature"].transform(
+            df[features].iloc[-LOOK_BACK:]
+        )
+        input_seq = np.expand_dims(input_data, axis=0)
+        # 예측
+        pred_scaled = models[target].predict(input_seq)
+        pred = scalers[target]["target"].inverse_transform(pred_scaled).flatten()[0]
+        results[target] = float(pred)
+    return results
+
+
+if __name__ == "__main__":
+    # load_preprocess_data는 dict를 반환하므로 df만 추출
+    data = load_preprocess_data(TARGETS[0])["df"]
+    result = predict_next_day(data)
+    print(result)

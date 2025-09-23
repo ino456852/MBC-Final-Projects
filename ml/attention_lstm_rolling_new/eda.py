@@ -3,15 +3,11 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+from .. import create_merged_dataset
 
 # 한글 폰트 설정 (Windows, Linux, macOS 환경에 따라 다르게 설정)
 plt.rcParams["font.family"] = "Malgun Gothic"  # Windows
 plt.rcParams["axes.unicode_minus"] = False  # 마이너스 부호 깨짐 방지
-
-# 에러나면 RUN
-# $env:PYTHONPATH="$(Get-Location)\ml;$env:PYTHONPATH"
-
-from ml.data_merge import create_merged_dataset
 
 
 def calculate_vif(df):

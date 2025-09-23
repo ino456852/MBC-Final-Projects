@@ -1,0 +1,62 @@
+{
+    "usd": {
+        "best_params": {
+            "lstm_units": 150,
+            "dropout_rate": 0.3,
+            "learning_rate": 0.0005
+        },
+        "metrics": {
+            "rmse": 16.84067617135158,
+            "r2": 0.8424859699807151,
+            "mape": 1.0826243343072943
+        }
+    },
+    "cny": {
+        "best_params": {
+            "lstm_units": 100,
+            "dropout_rate": 0.2,
+            "learning_rate": 0.0005
+        },
+        "metrics": {
+            "rmse": 7.124367195946885,
+            "r2": -1.8041548695573266,
+            "mape": 3.298955628200459
+        }
+    },
+    "jpy": {
+        "best_params": {
+            "lstm_units": 100,
+            "dropout_rate": 0.3,
+            "learning_rate": 0.001
+        },
+        "metrics": {
+            "rmse": 13.971612614500359,
+            "r2": 0.7698793780560974,
+            "mape": 1.2953635540276673
+        }
+    },
+    "eur": {
+        "best_params": {
+            "lstm_units": 150,
+            "dropout_rate": 0.2,
+            "learning_rate": 0.001
+        },
+        "metrics": {
+            "rmse": 12.293703984424006,
+            "r2": 0.5124818562452316,
+            "mape": 0.6215172551647716
+        }
+    },
+    "gbp": {
+        "best_params": {
+            "lstm_units": 150,
+            "dropout_rate": 0.3,
+            "learning_rate": 0.0005
+        },
+        "metrics": {
+            "rmse": 32.23003877648665,
+            "r2": -0.09810031549644926,
+            "mape": 1.6083266297715906
+        }
+    }
+}
