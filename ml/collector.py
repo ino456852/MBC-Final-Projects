@@ -1,6 +1,6 @@
-from database import MongoDB
-from config import config
-from data_ingest import (
+from .database import MongoDB
+from .config import config
+from .data_ingest import (
     insert_with_datareader,
     insert_with_yfinance,
     insert_with_ecos,

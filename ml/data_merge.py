@@ -1,8 +1,8 @@
 from datetime import datetime
 
 import pandas as pd
-from database import MongoDB
-from data_import import import_from_db
+from .database import MongoDB
+from .data_import import import_from_db
 
 
 def create_merged_dataset():

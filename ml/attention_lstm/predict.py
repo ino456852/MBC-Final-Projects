@@ -39,7 +39,8 @@ def predict_future(target: str, data: pd.DataFrame):
     return pred_value
 
 
-def predict_next_day(data: pd.DataFrame) -> dict:
+def predict_next_day() -> dict:
+    data=get_procceed_data()
     pred_data = {}
 
     for target in TARGETS:
@@ -49,4 +50,4 @@ def predict_next_day(data: pd.DataFrame) -> dict:
 
 
 if __name__ == "__main__":
-    print(predict_next_day(data=get_procceed_data()))
+    print(predict_next_day())
