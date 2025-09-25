@@ -1,12 +1,11 @@
 from fastapi import APIRouter, HTTPException
 
-from modules.database import MongoDB
-from domains.auth.services.auth_service import hash_password
+from modules.mongodb import MongoDB
+from domains.users.services.auth_service import hash_password
 from domains.users.models.user import User
 from domains.users.schemes.register_request import RegisterRequest
 
 router = APIRouter(prefix="/users", tags=["users"])
-
 
 @router.post("/register")
 async def register_user(register_data: RegisterRequest) -> dict[str, str]:

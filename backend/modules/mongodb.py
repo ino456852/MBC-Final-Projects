@@ -27,5 +27,7 @@ class MongoDB:
     def get_database(cls) -> AsyncIOMotorDatabase:
         """DB 핸들 가져오기"""
         if cls._db is None:
-            raise RuntimeError("❌ MongoDB not connected. Did you forget to call MongoDB.connect()?")  
+            raise RuntimeError(
+                "❌ MongoDB not connected. Did you forget to call MongoDB.connect()?"
+            )
         return cls._db

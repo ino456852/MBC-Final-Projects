@@ -1,26 +1,50 @@
 from contextlib import asynccontextmanager
-from typing import Dict, List
-from fastapi import FastAPI, HTTPException, Request
+import time
+import asyncio
+from fastapi import FastAPI, Response, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from domains.auth.services.auth_service import get_session_id, get_user_info
-from modules.database import MongoDB
-from domains.auth.routes.auth_routes import router as auth_router
-from domains.users.routes.user_routes import router as users_router
 
+from modules.mongodb import MongoDB
+from modules.redis import Redis
+
+from domains.chat.ws.chat_ws import register_chat_ws
+from domains.users.services.auth_service import get_session_id, get_user_info, refresh_session
+from modules.kafka import send_kafka_log, start_kafka, kafka_producer, kafka_chat_consumer, kafka_log_consumer
+
+from domains.users.routes.auth_routes import router as auth_router
+from domains.users.routes.user_routes import router as users_router
+from domains.chat.routes.chat_routes import router as chat_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await Redis.connect()
     MongoDB.connect()
+
+    loop = asyncio.get_running_loop()
+    
+    await start_kafka(loop)
+
     yield
+
+    await Redis.close()
     MongoDB.close()
+
+    await kafka_producer.stop()
+    await kafka_chat_consumer.stop()
+    await kafka_log_consumer.stop()
 
 
 app = FastAPI(lifespan=lifespan)
 
+app.include_router(router=auth_router)
+app.include_router(router=users_router)
+app.include_router(router=chat_router)
+register_chat_ws(app=app)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # 리액트 앱 도메인
+    allow_origins=["http://localhost:5173"],  # 프론트엔드 도메인
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,138 +58,40 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     )
 
 
-app.include_router(auth_router)
-app.include_router(users_router)
+@app.middleware("http")
+async def add_process_time_header(
+    request: Request, call_next
+) -> Response:
+    start_time = time.time()
+    
+    response = await call_next(request)
+    
+    process_time = time.time() - start_time
+    
+    
+    session_id = await get_session_id(request)
+    user_info = await get_user_info(session_id)
 
-
-# 아래부터는 채팅방 테스트입니다
-
-import asyncio
-from fastapi import WebSocket, WebSocketDisconnect
-
-
-class ChatRoomManager:
-    _sockets: Dict[str, WebSocket] = {}
-    _messages: List[str] = []  # 테스트용으로 깔아둔거 추후 db에 대화기록 저장할 예정
-    _lock = asyncio.Lock()
-
-    @classmethod
-    async def connect(cls, ws: WebSocket, session_id: str):
-        if not ws:
-            return
-        async with cls._lock:
-            old_ws = cls._sockets.get(session_id)
-            if old_ws:
-                try:
-                    await old_ws.close(code=1000)
-                except Exception as e:
-                    print(f"Error: {e}")
-
-            await ws.accept()
-            cls._sockets[session_id] = ws
-
-            for msg in cls._messages:
-                await ws.send_text(msg)
-
-    @classmethod
-    async def disconnect(cls, session_id: str):
-        async with cls._lock:
-            ws = cls._sockets.pop(session_id, None)
-        if ws:  # 락 해제 후 close (안 막히게)
-            try:
-                await ws.close()
-            except Exception as e:
-                print(f"Error: {e}")
-
-    @classmethod
-    async def broadcast(cls, message: str):
-        async with cls._lock:
-            sockets = list(cls._sockets.items())  # 복사본
-        dc_users = []
-
-        cls._messages.append(message)
-        for session_id, ws in sockets:
-            try:
-                await ws.send_text(message)
-            except Exception:
-                dc_users.append(session_id)
-
-        for session_id in dc_users:
-            await cls.disconnect(session_id)
-
-
-@app.websocket("/ws/chat")
-async def chat(ws: WebSocket):
-    session_id = await get_session_id(ws)
-    user_info = await get_user_info(session_id=session_id)
-    if not user_info:
-        await ws.close(code=4001)
-        return
-
-    await ChatRoomManager.connect(ws=ws, session_id=session_id)
-
-    try:
-        while True:
-            data = await ws.receive_text()
-
-            user_info = await get_user_info(session_id=session_id)
-
-            if not user_info:
-                await ChatRoomManager.disconnect(session_id=session_id)
-                return
-
-            await ChatRoomManager.broadcast(f"{user_info.username}: {data}")
-    except WebSocketDisconnect:
-        await ChatRoomManager.disconnect(session_id=session_id)
-
-
-from fastapi.responses import HTMLResponse
-
-
-@app.get("/chat")
-async def chat_page():
-    return HTMLResponse("""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Chat Test</title>
-    </head>
-    <body>
-        <h1>WebSocket Chat Test</h1>
-        <div>
-            <input id="messageInput" type="text" placeholder="메시지를 입력하세요" />
-            <button onclick="sendMessage()">보내기</button>
-        </div>
-        <ul id="messages"></ul>
-
-        <script>
-            const ws = new WebSocket(`ws://${location.host}/ws/chat`);
-
-            ws.onopen = () => {
-                console.log("✅ WebSocket 연결됨");
-            };
-
-            ws.onmessage = (event) => {
-                const messages = document.getElementById("messages");
-                const li = document.createElement("li");
-                li.textContent = event.data;
-                messages.appendChild(li);
-            };
-
-            ws.onclose = (event) => {
-                console.log("❌ WebSocket 닫힘", event);
-            };
-
-            function sendMessage() {
-                const input = document.getElementById("messageInput");
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(input.value);
-                    input.value = "";
-                } else {
-                    alert("⚠️ WebSocket 연결이 닫혀서 메시지를 보낼 수 없습니다.");
-                }
-            }
-        </script>
-    </body>
-    </html>
-    """)
+    if user_info:
+        await refresh_session(session_id)
+        
+        asyncio.create_task(send_kafka_log(
+            uid=user_info.uid,
+            type="http",
+            username=user_info.username,
+            path=request.url.path,
+            method=request.method,
+            status_code=response.status_code,
+            process_time=round(process_time, 3),
+        ))
+    else:
+        asyncio.create_task(send_kafka_log(
+            uid="",
+            type="http",
+            username="Guest",
+            path=request.url.path,
+            method=request.method,
+            status_code=response.status_code,
+            process_time=round(process_time, 3),
+        ))
+    return response
