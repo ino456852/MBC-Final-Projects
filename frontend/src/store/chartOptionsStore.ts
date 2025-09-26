@@ -5,11 +5,15 @@ interface ChartOptionsState {
   setModel: (model: string) => void;
   currency: string;
   setCurrency: (currency: string) => void;
+  period: "recent" | "all";
+  setPeriod: (period: "recent" | "all") => void;
 }
 
 export const useChartOptionsStore = create<ChartOptionsState>((set) => ({
-  model: "lstm_attention",
+  model: "LSTM Attention",
   setModel: (model) => set({ model }),
   currency: "usd",
   setCurrency: (currency) => set({ currency }),
+  period: "recent",
+  setPeriod: (period) => set({ period }),
 }));

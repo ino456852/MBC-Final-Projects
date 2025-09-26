@@ -1,12 +1,13 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useChartOptionsStore } from "@/store/chartOptionsStore"
+import { Button } from "@/components/ui/button"
 
 interface LeftSidebarProps {
   isOpen: boolean
 }
 
 export function LeftSidebar({ isOpen }: LeftSidebarProps) {
-  const { model, setModel, currency, setCurrency } = useChartOptionsStore()
+  const { model, setModel, currency, setCurrency, period, setPeriod } = useChartOptionsStore()
 
   return (
     <aside
@@ -24,9 +25,9 @@ export function LeftSidebar({ isOpen }: LeftSidebarProps) {
                   <SelectValue placeholder="모델 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="lstm_attention">LSTM Attention</SelectItem>
-                  <SelectItem value="lstm_attention_rolling">LSTM Attention Rolling</SelectItem>
-                  <SelectItem value="lstm_mha">LSTM MHA</SelectItem>
+                  <SelectItem value="vanilla">LSTM Attention</SelectItem>
+                  <SelectItem value="rolling">LSTM Attention Rolling</SelectItem>
+                  <SelectItem value="mha">LSTM MHA</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -44,6 +45,23 @@ export function LeftSidebar({ isOpen }: LeftSidebarProps) {
                   <SelectItem value="gbp">GBP (파운드)</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2 pt-2">
+              <label className="text-sm font-medium text-foreground">기간 선택</label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={period === "recent" ? "secondary" : "outline"}
+                  onClick={() => setPeriod("recent")}
+                >
+                  최근
+                </Button>
+                <Button
+                  variant={period === "all" ? "secondary" : "outline"}
+                  onClick={() => setPeriod("all")}
+                >
+                  전체
+                </Button>
+              </div>
             </div>
           </div>
         </div>
