@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -7,7 +8,51 @@ interface ChatSidebarProps {
   isOpen: boolean
 }
 
+interface ChatMessage {
+  sender: string
+  content: string
+  time: string
+  isMe?: boolean
+}
+
 export function ChatSidebar({ isOpen }: ChatSidebarProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState("")
+  const [wsConnected, setWsConnected] = useState(true)
+  const ws = useRef<WebSocket | null>(null)
+
+  useEffect(() => {
+    ws.current = new WebSocket("ws://localhost:8000/ws/chat")
+    ws.current.onopen = () => setWsConnected(true)
+    ws.current.onclose = () => setWsConnected(false)
+    ws.current.onerror = () => setWsConnected(false)
+    ws.current.onmessage = (event) => {
+      const data = JSON.parse(event.data)
+      setMessages(prev => [
+        ...prev,
+        {
+          sender: data.username,
+          content: data.message,
+          time: data.time ? new Date(data.time).toLocaleTimeString() : new Date().toLocaleTimeString(),
+          isMe: data.isMe
+        },
+      ])
+    }
+    return () => {
+      ws.current?.close()
+    }
+  }, [])
+
+  const handleSend = () => {
+    const trimmed = input.trim()
+    if (!trimmed || !ws.current || ws.current.readyState !== WebSocket.OPEN) {
+      setInput("")
+      return
+    }
+    ws.current.send(trimmed)
+    setInput("")
+  }
+
   return (
     <aside
       className={`bg-card border-l border-border transition-all duration-300 flex flex-col flex-shrink-0 h-full ${isOpen ? "w-80" : "w-0 overflow-hidden"
@@ -21,31 +66,45 @@ export function ChatSidebar({ isOpen }: ChatSidebarProps) {
         <div className="flex-1 p-4 overflow-hidden">
           <ScrollArea className="h-full pr-4">
             <div className="space-y-3">
-              <div className="p-3 bg-accent rounded-lg">
-                <p className="text-xs font-medium text-accent-foreground/80 mb-1">상담원</p>
-                <p className="text-sm text-accent-foreground">안녕하세요! 환율 정보가 필요하신가요?</p>
-                <span className="text-xs text-accent-foreground/70">오전 10:30</span>
-              </div>
-              <div className="p-3 bg-primary text-primary-foreground rounded-lg ml-8">
-                <p className="text-xs font-medium opacity-80 mb-1">김철수</p>
-                <p className="text-sm">네, 오늘 달러 환율을 확인하고 싶습니다.</p>
-                <span className="text-xs opacity-70">오전 10:32</span>
-              </div>
-              <div className="p-3 bg-accent rounded-lg">
-                <p className="text-xs font-medium text-accent-foreground/80 mb-1">상담원</p>
-                <p className="text-sm text-accent-foreground">현재 USD/KRW 환율은 1,340원입니다.</p>
-                <span className="text-xs text-accent-foreground/70">오전 10:33</span>
-              </div>
+              {messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`p-3 rounded-lg ${msg.isMe
+                    ? "bg-primary text-primary-foreground ml-8"
+                    : "bg-accent"
+                    }`}
+                >
+                  <p className={`text-xs font-medium ${msg.isMe ? "opacity-80" : "text-accent-foreground/80"} mb-1`}>
+                    {msg.sender}
+                  </p>
+                  <p className={`text-sm ${msg.isMe ? "" : "text-accent-foreground"}`}>{msg.content}</p>
+                  <span className={`text-xs ${msg.isMe ? "opacity-70" : "text-accent-foreground/70"}`}>{msg.time}</span>
+                </div>
+              ))}
             </div>
           </ScrollArea>
         </div>
 
         <div className="p-4 border-t border-border space-y-3 flex-shrink-0">
+          {!wsConnected && (
+            <div className="text-red-500 text-sm mb-2 text-center">
+              채팅을 이용하려면 로그인이 필요합니다.
+            </div>
+          )}
           <Textarea
             placeholder="메시지를 입력하세요..."
             className="min-h-[80px] resize-none"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault()
+                handleSend()
+              }
+            }}
+            disabled={!wsConnected}
           />
-          <Button className="w-full" size="sm">
+          <Button className="w-full" size="sm" onClick={handleSend} disabled={!wsConnected}>
             <Send className="w-4 h-4 mr-2" />
             전송
           </Button>

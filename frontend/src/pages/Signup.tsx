@@ -1,5 +1,6 @@
 import type React from "react"
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,13 +9,35 @@ import { Link } from "react-router-dom"
 
 export default function SignupPage() {
   const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [error, setError] = useState("")
+  const navigate = useNavigate() // 추가
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle signup logic here
-    console.log("Signup attempt:", { email, password, confirmPassword })
+    setError("")
+
+    if (password !== confirmPassword) {
+      setError("비밀번호가 일치하지 않습니다.")
+      return
+    }
+
+    try {
+      const response = await fetch("http://localhost:8000/users/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password, email }),
+      })
+      if (!response.ok) {
+        throw new Error("회원가입에 실패했습니다.")
+      }
+      alert("회원가입 성공!")
+      navigate("/login")
+    } catch (err: any) {
+      setError(err.message || "오류가 발생했습니다.")
+    }
   }
 
   return (
@@ -26,6 +49,17 @@ export default function SignupPage() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">사용자 이름</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="사용자 이름을 입력하세요"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">이메일</Label>
               <Input
@@ -59,6 +93,9 @@ export default function SignupPage() {
                 required
               />
             </div>
+            {error && (
+              <div className="text-red-500 text-sm text-center">{error}</div>
+            )}
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full mt-2">

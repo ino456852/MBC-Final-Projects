@@ -27,14 +27,11 @@ async def login_user(login_request: LoginRequest, response: Response) -> dict:
     user = await MongoDB.get_database().users.find_one(
         {"username": login_request.username}
     )
-    
+
     if not user or not verify_password(login_request.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid username or password")
-    
-    user_info = UserInfo(
-        uid=str(user["_id"]),
-        username=user["username"]
-    )
+
+    user_info = UserInfo(uid=str(user["_id"]), username=user["username"])
     session_id = await create_session(user_info=user_info)
 
     response.set_cookie(
@@ -42,7 +39,7 @@ async def login_user(login_request: LoginRequest, response: Response) -> dict:
         value=session_id,
         httponly=True,
         secure=True,
-        samesite="lax",
+        samesite="none",
         max_age=SESSION_TTL,
     )
 
@@ -63,10 +60,10 @@ async def logout_user(response: Response, session_id: str = Cookie(None)) -> dic
     """
     if not session_id:
         raise HTTPException(status_code=400, detail="No session provided")
-    
+
     redis = Redis.get_client()
     deleted = await redis.delete(f"session:{session_id}")
-    
+
     if deleted == 0:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
 
