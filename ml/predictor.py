@@ -5,7 +5,6 @@ import ml.attention_lstm_rolling_new.predict as attention_lstm_rolling_predict
 import ml.attention_lstm.predict as attention_lstm_predict
 from .database import MongoDB
 
-
 def insert_predicted_price():
 
     # 각 모델별 예측 결과에 index(모델명) 추가
@@ -31,7 +30,6 @@ def insert_predicted_price():
     db = MongoDB.get_database()
     db["predicted_price"].insert_many(df.reset_index().to_dict("records"))
     MongoDB.close()
-
 
 if __name__ == "__main__":
     insert_predicted_price()

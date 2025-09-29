@@ -11,12 +11,9 @@ def get_cached_dataset():
     try:
         # 1. 종속변수 (환율) 가져오기 및 병합
         usd = import_from_db(db["usd"])
-        # gbp = import_from_db(db["gbp"])
         eur = import_from_db(db["eur"])
         jpy = import_from_db(db["jpy(100)"]).rename(columns={"jpy(100)": "jpy"})
 
-        # 과거엔 usd_cny만 있어서 과거데이터는 추가 계산이 필요
-        # 계산후 최신 데이터와 병합
         usd_cny = import_from_db(db["usd_cny"])
         usd_cny["cny"] = usd["usd"] / usd_cny["usd_cny"]
         usd_cny = usd_cny[["date", "cny"]]
@@ -30,18 +27,17 @@ def get_cached_dataset():
         dgs10 = import_from_db(db["dgs10"])
         kr_rate = import_from_db(db["kr_rate"])
         us_rate = import_from_db(db["us_rate"])
+        cny10 = import_from_db(db["cny10"])
+        cny_fx_reserves = import_from_db(db["cny_fx_reserves"])
+        cny_trade_bal = import_from_db(db["cny_trade_bal"])
+        jpy10 = import_from_db(db["jpy10"])
 
         data_list = [
-            usd,
-            eur,
-            jpy,
-            cny_merged,
-            vix,
-            dxy,
-            wti,
-            dgs10,
-            kr_rate,
-            us_rate,
+            usd, eur, jpy, cny_merged,
+            vix, dxy, wti,
+            dgs10, cny10, jpy10,
+            cny_fx_reserves, cny_trade_bal,
+            kr_rate, us_rate
         ]
 
         for i, df in enumerate(data_list):
@@ -68,7 +64,6 @@ def get_cached_dataset():
 def create_merged_dataset():
     gen = get_cached_dataset()
     return next(gen)
-
 
 if __name__ == "__main__":
     dataset = create_merged_dataset().round(4)

@@ -1,15 +1,16 @@
-from typing import Optional
-import yfinance as yf
 import pandas_datareader.data as web
-from datetime import datetime, timedelta
-import httpx
 import pandas as pd
+import yfinance as yf
+import httpx
+import requests
+from datetime import datetime, timedelta
 from pymongo.database import Database
-
+from bs4 import BeautifulSoup
+from typing import Optional
+from io import StringIO
 
 def insert_log(name: str, count: int):
     print(f"[{name}] 컬렉션에 {count}개를 저장했습니다")
-
 
 def next_date(date: datetime, interval: str) -> str:
     if interval == "D":
@@ -23,37 +24,44 @@ def next_date(date: datetime, interval: str) -> str:
         return str(date.year + 1)
     raise ValueError(f"Unsupported interval: {interval}")
 
-
-def insert_with_datareader(
-    db: Database, coll_name: str, reader_name: str, data_source: str
-):
-    """Pandas Datareader API 데이터를 MongoDB 컬렉션에 삽입"""
-
+# FRED 데이터 MongoDB 컬렉션에 삽입
+def insert_with_datareader(db: Database, coll_name: str, reader_name: str, data_source: str, interval: str = "D"):
     count = 0
     try:
         collection = db[coll_name]
 
-        latest_doc = collection.find_one(
-            sort=[("date", -1)], projection={"date": 1, "_id": 0}
-        )
+        # 기존 컬렉션의 마지막 날짜 조회
+        latest_doc = collection.find_one(sort=[("date", -1)], projection={"date": 1, "_id": 0})
+        existing_dates = set(collection.distinct("date"))
 
+        # 시작일 계산
         if latest_doc:
-            # MongoDB에 저장된 마지막 날짜 이후부터 가져오기
-            start_date = next_date(latest_doc["date"], "D")
+            start_date = latest_doc["date"]
+            if isinstance(start_date, str):
+                start_date = pd.to_datetime(start_date).date()
+            # interval에 맞춰 다음 날짜부터 시작
+            start_date = next_date(start_date, interval)
         else:
-            # 컬렉션이 없거나 비어있으면 10년 전부터 가져오기
-            start_date = "20150901"
+            # 컬렉션 비어있으면 기본값
+            start_date = "201509" if interval == "M" else "20150901"
 
-        start_date = datetime.strptime(start_date, "%Y%m%d").date()
+        # 문자열 → datetime 변환
+        if interval == "M":
+            start_date = datetime.strptime(start_date, "%Y%m").date()
+        else:
+            start_date = datetime.strptime(start_date, "%Y%m%d").date()
+
         if start_date >= datetime.today().date():
             return
 
+        # 데이터 가져오기
         data = web.DataReader(reader_name, data_source, start_date)
 
-        records = [
-            {"date": idx.to_pydatetime(), coll_name: float(val)}
-            for idx, val in data[reader_name].items()
-        ]
+        records = []
+        for idx, val in data[reader_name].items():
+            dt = pd.to_datetime(idx).date()  # 문자열/타임스탬프 모두 처리
+            if dt not in existing_dates:
+                records.append({"date": dt, coll_name: float(val)})
 
         if not records:
             return
@@ -65,12 +73,9 @@ def insert_with_datareader(
     finally:
         insert_log(coll_name, count)
 
-
+# YFinance 데이터 MongoDB 컬렉션에 삽입
 def insert_with_yfinance(db: Database, coll_name: str, ticker: str):
-    """YFinance API 데이터를 MongoDB 컬렉션에 삽입"""
-
     count = 0
-
     try:
         collection = db[coll_name]
 
@@ -79,10 +84,8 @@ def insert_with_yfinance(db: Database, coll_name: str, ticker: str):
         )
 
         if latest_doc:
-            # MongoDB에 저장된 마지막 날짜 이후부터 가져오기
             start_date = next_date(latest_doc["date"], "D")
         else:
-            # 컬렉션이 없거나 비어있으면 10년 전부터 가져오기
             start_date = "2015-09-01"
 
         start_date = datetime.strptime(start_date, "%Y%m%d").date()
@@ -91,10 +94,24 @@ def insert_with_yfinance(db: Database, coll_name: str, ticker: str):
 
         data = yf.download(ticker, start=start_date, interval="1d")["Close"]
 
-        records = [
-            {"date": idx, coll_name: float(val)}
-            for idx, val in zip(data[ticker].index, data[ticker].values)
-        ]
+        if isinstance(data, pd.Series):
+            records = [
+                {"date": pd.to_datetime(idx), coll_name: float(val)}
+                for idx, val in data.items()
+                if not pd.isna(val)
+            ]
+        else:  # DataFrame
+            records = [
+                {"date": pd.to_datetime(idx), coll_name: float(val)}
+                for idx, val in zip(data.index, data[ticker].values)
+                if not pd.isna(val)
+            ]
+
+        if not records:
+            return
+        
+        existing_dates = {doc["date"] for doc in collection.find({}, {"date": 1})}
+        records = [r for r in records if r["date"] not in existing_dates]
 
         if not records:
             return
@@ -106,21 +123,12 @@ def insert_with_yfinance(db: Database, coll_name: str, ticker: str):
     finally:
         insert_log(coll_name, count)
 
-
+# 한국은행 ECOS 데이터 MongoDB 컬렉션에 삽입
 def insert_with_ecos(
-    db: Database,
-    coll_name: str,
-    api_key: str,
-    stat_code: str,
-    interval: str,
-    code: str,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-):
-    """한국은행 ECOS API 데이터를 MongoDB 컬렉션에 삽입"""
+    db: Database, coll_name: str, api_key: str, stat_code: str, interval: str, code: str,
+    start_date: Optional[str] = None, end_date: Optional[str] = None):
 
     count = 0
-
     try:
         # interval별 설정
         date_format, default_start = {
@@ -131,7 +139,6 @@ def insert_with_ecos(
 
         collection = db[coll_name]
 
-        # MongoDB에서 마지막 날짜 조회
         latest_doc = collection.find_one(
             sort=[("date", -1)], projection={"date": 1, "_id": 0}
         )
@@ -183,12 +190,59 @@ def insert_with_ecos(
         data["date"] = pd.to_datetime(data["date"], format=date_format)
         data[coll_name] = data[coll_name].astype(float)
 
-        records = data.to_dict("records")
-        if not records:
+        existing_dates = set(collection.distinct("date"))
+        data = data[~data["date"].isin(existing_dates)]
+        
+        if data.empty:
             return
 
+        records = data.to_dict("records")
         result = collection.insert_many(records)
         count = len(result.inserted_ids)
+    except Exception as e:
+        print(f"ERROR: {e}")
+    finally:
+        insert_log(coll_name, count)
+
+# Investing.com 데이터를 MongoDB 컬렉션에 삽입
+def insert_with_investing(db: Database, coll_name: str):
+    count = 0
+    try:
+        collection = db[coll_name]
+        
+        latest_doc = collection.find_one(sort=[("date", -1)], projection={"date": 1, "_id": 0})
+        if latest_doc:
+            start_date = latest_doc["date"] + timedelta(days=1)
+        else:
+            start_date = datetime(2015, 9, 1)
+
+        if start_date >= datetime.today():
+            return
+
+        url = "https://www.investing.com/rates-bonds/china-10-year-bond-yield-historical-data"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, "lxml")
+
+        table = soup.find("table", {"id": "curr_table"})
+        df = pd.read_html(StringIO(str(table)))[0]
+
+        df = df.rename(columns={"Date": "date", "Price": coll_name})
+        df[coll_name] = df[coll_name].astype(str).str.replace("%", "").astype(float)
+        df["date"] = pd.to_datetime(df["date"], format="%b %d, %Y")
+
+        df = df[df["date"] >= start_date]
+        
+        existing_dates = set(collection.distinct("date"))
+        df = df[~df["date"].isin(existing_dates)]
+
+        if df.empty:
+            return
+
+        records = [{"date": row["date"], coll_name: row[coll_name]} for _, row in df.iterrows()]
+        result = collection.insert_many(records)
+        count = len(result.inserted_ids)
+
     except Exception as e:
         print(f"ERROR: {e}")
     finally:
