@@ -4,6 +4,7 @@ import pandas as pd
 from .database import MongoDB
 from .data_import import import_from_db
 
+
 def get_cached_dataset():
     MongoDB.connect()
     db = MongoDB.get_database()
@@ -11,7 +12,7 @@ def get_cached_dataset():
     try:
         # 1. 종속변수 (환율) 가져오기 및 병합
         usd = import_from_db(db["usd"])
-        # gbp = import_from_db(db["gbp"])
+        gbp = import_from_db(db["gbp"])
         eur = import_from_db(db["eur"])
         jpy = import_from_db(db["jpy(100)"]).rename(columns={"jpy(100)": "jpy"})
 
@@ -33,6 +34,7 @@ def get_cached_dataset():
 
         data_list = [
             usd,
+            gbp,
             eur,
             jpy,
             cny_merged,
@@ -64,6 +66,7 @@ def get_cached_dataset():
 
     finally:
         MongoDB.close()
+
 
 def create_merged_dataset():
     gen = get_cached_dataset()
