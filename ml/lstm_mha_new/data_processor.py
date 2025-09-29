@@ -1,11 +1,12 @@
 import os
 import joblib
 import numpy as np
-from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import MinMaxScaler
 from ..data_merge import create_merged_dataset
 from .constant import (
+    PRED_TRUE_DIR,
     LOOK_BACK,
+    PRED_TRUE_CSV,
     SCALER_DIR,
 )
 import pandas as pd
@@ -18,9 +19,6 @@ class DataProcessor:
             self.origin_data["kr_rate"] - self.origin_data["us_rate"]
         )
         self.targets = ["usd", "cny", "jpy", "eur", "gbp"]
-
-        # 현재 컬럼수 - 종속변수 갯수 - 1(kr_us_diff)
-        self.num_base_features = self.origin_data.shape[1] - len(self.targets) - 1
 
     def add_indicators(self, data: pd.DataFrame, target: str):
         periods = [5, 20, 60, 120]
@@ -50,7 +48,7 @@ class DataProcessor:
             return np.array(Xs), np.array(ys), np.array(idxs)
         return np.array(Xs), np.array(ys)
 
-    def save_predictions_csv(self, y_true, y_pred, target: str, filepath, index):
+    def save_predictions_csv(self, y_true, y_pred, target: str, index):
         """
         실제값과 예측값을 CSV로 저장합니다.
         """
@@ -62,12 +60,19 @@ class DataProcessor:
         df = pd.DataFrame({"true": y_true_inv, "pred": y_pred_inv})
         df.index = index
 
-        df.to_csv(filepath)
-        print(f"Saved: {filepath}")
+        csv_file = f"{target}_{PRED_TRUE_CSV}"
+        os.makedirs(PRED_TRUE_DIR, exist_ok=True)
+        df.to_csv(PRED_TRUE_DIR / csv_file)
+        print(f"Saved: {csv_file}")
 
     def get_proceed_data(self, target) -> pd.DataFrame:
         data = self.origin_data.copy()
 
+        # targets에 없는 컬럼들 + 타겟 컬럼만 남기고 나머지 제거
+        keep_cols = [
+            col for col in data.columns if col not in self.targets or col == target
+        ]
+        data = data[keep_cols]
         self.add_indicators(data=data, target=target)
 
         return data
@@ -75,23 +80,14 @@ class DataProcessor:
     def get_sequence_data(self, target: str):
         data = self.get_proceed_data(target=target)
 
-        # TimeSeriesSplit을 이용해 마지막 split의 test set 추출
-        tss = TimeSeriesSplit(n_splits=5)
-        all_splits = list(tss.split(data))
-        train_indices, test_indices = all_splits[-1]
-
-        train_df = data.iloc[train_indices]
-        test_df = data.iloc[test_indices]
+        X = data.drop(columns=[target])
+        y = data[target]
 
         target_scaler = MinMaxScaler()
         feature_scaler = MinMaxScaler()
 
-        features = list(data.columns)
-        features.remove(target)
-        train_features_scaled = feature_scaler.fit_transform(train_df[features])
-        train_target_scaled = target_scaler.fit_transform(train_df[[target]])
-        test_features_scaled = feature_scaler.transform(test_df[features])
-        test_target_scaled = target_scaler.transform(test_df[[target]])
+        target_scaled = target_scaler.fit_transform(y.to_frame())
+        features_scaled = feature_scaler.fit_transform(X)
 
         # scaler를 파일로 저장
         os.makedirs(SCALER_DIR, exist_ok=True)
@@ -102,14 +98,9 @@ class DataProcessor:
             feature_scaler, os.path.join(SCALER_DIR, f"{target}_feature_scaler.pkl")
         )
 
-        X_train_seq, y_train_seq = self.create_sequences(
-            X=train_features_scaled, y=train_target_scaled, seq_len=LOOK_BACK
-        )
-        X_test_seq, y_test_seq, y_test_idxs = self.create_sequences(
-            X=test_features_scaled,
-            y=test_target_scaled,
-            seq_len=LOOK_BACK,
-            y_index=test_df.index,
+        # 인덱스도 같이 넘김
+        X_seq, y_seq, y_idxs = self.create_sequences(
+            X=features_scaled, y=target_scaled, seq_len=LOOK_BACK, y_index=y.index
         )
 
-        return X_train_seq, y_train_seq, X_test_seq, y_test_seq, y_test_idxs
+        return X_seq, y_seq, y_idxs

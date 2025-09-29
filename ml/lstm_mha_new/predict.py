@@ -1,15 +1,13 @@
 from .data_processor import DataProcessor
-from .models import CustomAttention, SumOverTime
-from .constant import LOOK_BACK, MODELS_DIR
-import tensorflow as tf
+from .constant import LOOK_BACK, MODEL_DIR, KERAS_FILE_TEMPLATE
+from tensorflow import keras
 
 
 def load_model(target: str):
-    model_path = MODELS_DIR / f"{target}_mha_lstm.keras"
-    return tf.keras.models.load_model(
-        model_path,
-        compile=False,
-        custom_objects={"CustomAttention": CustomAttention, "SumOverTime": SumOverTime},
+    model_path = MODEL_DIR / f"{target}{KERAS_FILE_TEMPLATE}"
+    # custom_objects 인자를 제거하여 모델을 로드합니다.
+    return keras.models.load_model(
+        model_path, compile=False
     )
 
 

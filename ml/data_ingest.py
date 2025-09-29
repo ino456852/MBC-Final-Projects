@@ -64,6 +64,47 @@ def insert_with_datareader(
         print(f"ERROR: {e}")
     finally:
         insert_log(coll_name, count)
+        
+def insert_eur_long_rate(db, coll_name="eur_long_rate"):
+    """유로존 10년 만기 장기국채 금리를 월 단위로 MongoDB에 삽입"""
+    count = 0
+    try:
+        collection = db[coll_name]
+
+        latest_doc = collection.find_one(
+            sort=[("date", -1)], projection={"date": 1, "_id": 0}
+        )
+
+        if latest_doc:
+            start_date = latest_doc["date"].strftime("%Y-%m")
+        else:
+            start_date = "2015-01"
+
+        start_dt = datetime.strptime(start_date, "%Y-%m")
+
+        df = web.DataReader("IRLTLT01EZM156N", "fred", start_dt)
+
+        # 월별 리샘플링
+        df_monthly = df.resample("M").last()
+
+        records = [
+            {"date": idx.to_pydatetime(), coll_name: float(val)}
+            for idx, val in df_monthly["IRLTLT01EZM156N"].items()
+            if pd.notnull(val)
+        ]
+
+        if records:
+            result = collection.insert_many(records)
+            count = len(result.inserted_ids)
+
+    except Exception as e:
+        print(f"ERROR: {e}")
+    finally:
+        print(f"[{coll_name}] 컬렉션에 {count}개 저장")
+
+
+
+
 
 
 def insert_with_yfinance(db: Database, coll_name: str, ticker: str):

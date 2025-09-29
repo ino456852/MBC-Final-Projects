@@ -47,6 +47,12 @@ def get_cached_dataset():
         for i, df in enumerate(data_list):
             df["date"] = pd.to_datetime(df["date"])
             df.set_index("date", inplace=True)
+            
+            if df.index.has_duplicates:
+                col_name = df.columns[0] if not df.columns.empty else "Unknown"
+                print(f"'{col_name}' 데이터에 중복된 날짜가 있어 마지막 값만 남깁니다.")
+                # 중복된 인덱스 중 마지막 값만 남기고 나머지는 제거합니다.
+                df = df[~df.index.duplicated(keep='last')]
 
             # 누락 날짜 추가 후 ffill
             today = pd.to_datetime(datetime.today().date())

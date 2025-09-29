@@ -42,7 +42,6 @@ export function LeftSidebar({ isOpen }: LeftSidebarProps) {
                   <SelectItem value="eur">EUR (유로)</SelectItem>
                   <SelectItem value="cny">CNY (위안)</SelectItem>
                   <SelectItem value="jpy">JPY (엔)</SelectItem>
-                  <SelectItem value="gbp">GBP (파운드)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

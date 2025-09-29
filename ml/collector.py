@@ -2,6 +2,7 @@ from .database import MongoDB
 from .config import config
 from .data_ingest import (
     insert_with_datareader,
+    insert_eur_long_rate,
     insert_with_yfinance,
     insert_with_ecos,
 )
@@ -16,6 +17,8 @@ if __name__ == "__main__":
     insert_with_datareader(
         db=db, coll_name="dgs10", reader_name="DGS10", data_source="fred"
     )
+    # 유로 기준 금리 
+    insert_eur_long_rate(db=db, coll_name="eur10")
 
     # 단위: 지수 (1973.03 [고정환율 -> 변동환율 변환 시점] = 100 기준)
     insert_with_yfinance(db=db, coll_name="dxy", ticker="DX-Y.NYB")
