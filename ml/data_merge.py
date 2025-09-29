@@ -27,7 +27,6 @@ def get_cached_dataset():
         dgs10 = import_from_db(db["dgs10"])
         kr_rate = import_from_db(db["kr_rate"])
         us_rate = import_from_db(db["us_rate"])
-        cny10 = import_from_db(db["cny10"])
         cny_fx_reserves = import_from_db(db["cny_fx_reserves"])
         cny_trade_bal = import_from_db(db["cny_trade_bal"])
         jpy10 = import_from_db(db["jpy10"])
@@ -35,13 +34,15 @@ def get_cached_dataset():
         data_list = [
             usd, eur, jpy, cny_merged,
             vix, dxy, wti,
-            dgs10, cny10, jpy10,
+            dgs10, jpy10,
             cny_fx_reserves, cny_trade_bal,
             kr_rate, us_rate
         ]
 
         for i, df in enumerate(data_list):
             df["date"] = pd.to_datetime(df["date"])
+            
+            df = df.loc[~df["date"].duplicated(keep="first")]
             df.set_index("date", inplace=True)
 
             # 누락 날짜 추가 후 ffill

@@ -4,18 +4,12 @@ from .data_ingest import (
     insert_with_datareader,
     insert_with_yfinance,
     insert_with_ecos,
-    insert_with_investing
 )
 
 if __name__ == "__main__":
     MongoDB.connect()
     db = MongoDB.get_database()
     eco_api_key = config.ECOS_API_KEY
-
-    # 중국 10Y Bond Yield
-    insert_with_investing(
-        db=db, coll_name="cny10"
-    )
 
     # DGS10: % 단위 (공휴일, 휴장일은 결측치)
     insert_with_datareader(
