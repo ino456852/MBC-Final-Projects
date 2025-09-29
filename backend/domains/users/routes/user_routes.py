@@ -1,11 +1,38 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from modules.mongodb import MongoDB
-from domains.users.services.auth_service import hash_password
+from domains.users.services.auth_service import (
+    get_session_id,
+    get_user_info,
+    hash_password,
+)
 from domains.users.models.user import User
 from domains.users.schemes.register_request import RegisterRequest
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("/profile")
+async def get_profile(request: Request):
+    """
+    현재 로그인한 사용자의 프로필 정보를 반환합니다.
+
+    Args:
+        request (Request): FastAPI 요청 객체
+
+    Returns:
+        dict: 사용자 정보
+    """
+    session_id = await get_session_id(request)
+    if not session_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user_info = await get_user_info(session_id)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Invalid session or user not found")
+
+    return user_info.model_dump()
+
 
 @router.post("/register")
 async def register_user(register_data: RegisterRequest) -> dict[str, str]:

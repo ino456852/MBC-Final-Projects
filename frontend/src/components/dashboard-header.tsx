@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { MessageSquare, Menu, Moon, Sun } from "lucide-react"
 import { Link } from "react-router-dom"
@@ -8,10 +9,31 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ onToggleLeftSidebar, onToggleChatSidebar }: DashboardHeaderProps) {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    fetch("http://localhost:8000/users/profile", {
+      credentials: "include",
+    })
+      .then((res) => {
+        if (res.ok) setIsLoggedIn(true)
+        else setIsLoggedIn(false)
+      })
+      .catch(() => setIsLoggedIn(false))
+  }, [])
 
   const toggleTheme = () => {
     const html = document.documentElement
     html.classList.toggle("dark")
+  }
+
+  const handleLogout = async () => {
+    await fetch("http://localhost:8000/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    })
+    setIsLoggedIn(false)
+    window.location.reload()
   }
 
   return (
@@ -32,14 +54,24 @@ export function DashboardHeader({ onToggleLeftSidebar, onToggleChatSidebar }: Da
             <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             <span className="sr-only">테마 전환</span>
           </Button>
-          <Link to="/login">
+          {isLoggedIn ? (
             <Button
               variant="outline"
               className="border-2 border-foreground text-foreground hover:bg-accent bg-transparent"
+              onClick={handleLogout}
             >
-              로그인
+              로그아웃
             </Button>
-          </Link>
+          ) : (
+            <Link to="/login">
+              <Button
+                variant="outline"
+                className="border-2 border-foreground text-foreground hover:bg-accent bg-transparent"
+              >
+                로그인
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </header>
