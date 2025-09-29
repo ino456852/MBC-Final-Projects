@@ -4,15 +4,14 @@ import pandas as pd
 from .database import MongoDB
 from .data_import import import_from_db
 
-
-def create_merged_dataset():
+def get_cached_dataset():
     MongoDB.connect()
     db = MongoDB.get_database()
 
     try:
         # 1. 종속변수 (환율) 가져오기 및 병합
         usd = import_from_db(db["usd"])
-        gbp = import_from_db(db["gbp"])
+        # gbp = import_from_db(db["gbp"])
         eur = import_from_db(db["eur"])
         jpy = import_from_db(db["jpy(100)"]).rename(columns={"jpy(100)": "jpy"})
 
@@ -34,7 +33,6 @@ def create_merged_dataset():
 
         data_list = [
             usd,
-            gbp,
             eur,
             jpy,
             cny_merged,
@@ -58,14 +56,18 @@ def create_merged_dataset():
             data_list[i] = df.reindex(all_dates).ffill()
 
         df = pd.concat(data_list, axis=1, join="outer")
-        return df
+        yield df
 
     except Exception as e:
         print(f"오류가 발생했습니다: {e}")
-        return None
+        yield None
 
     finally:
         MongoDB.close()
+
+def create_merged_dataset():
+    gen = get_cached_dataset()
+    return next(gen)
 
 
 if __name__ == "__main__":

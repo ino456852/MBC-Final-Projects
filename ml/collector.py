@@ -50,14 +50,14 @@ if __name__ == "__main__":
         code="0000001",
     )
 
-    insert_with_ecos(
-        db=db,
-        coll_name="gbp",
-        api_key=eco_api_key,
-        stat_code="731Y001",
-        interval="D",
-        code="0000012",
-    )
+    # insert_with_ecos(
+    #     db=db,
+    #     coll_name="gbp",
+    #     api_key=eco_api_key,
+    #     stat_code="731Y001",
+    #     interval="D",
+    #     code="0000012",
+    # )
 
     insert_with_ecos(
         db=db,
