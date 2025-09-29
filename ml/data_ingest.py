@@ -24,87 +24,48 @@ def next_date(date: datetime, interval: str) -> str:
     raise ValueError(f"Unsupported interval: {interval}")
 
 
-def insert_with_datareader(
-    db: Database, coll_name: str, reader_name: str, data_source: str
-):
-    """Pandas Datareader API 데이터를 MongoDB 컬렉션에 삽입"""
-
+# FRED 데이터 MongoDB 컬렉션에 삽입
+def insert_with_datareader(db: Database, coll_name: str, reader_name: str, data_source: str, interval: str = "D"):
     count = 0
     try:
         collection = db[coll_name]
 
-        latest_doc = collection.find_one(
-            sort=[("date", -1)], projection={"date": 1, "_id": 0}
-        )
-
-        if latest_doc:
-            # MongoDB에 저장된 마지막 날짜 이후부터 가져오기
-            start_date = next_date(latest_doc["date"], "D")
+        latest_doc = collection.find_one(sort=[("date", -1)], projection={"date": 1, "_id": 0})
+        start_date = next_date(latest_doc["date"], interval) if latest_doc else "20150901"
+        
+        if interval == "M":
+            start_date = datetime.strptime(start_date, "%Y%m").date()
         else:
-            # 컬렉션이 없거나 비어있으면 10년 전부터 가져오기
-            start_date = "20150901"
+            start_date = datetime.strptime(start_date, "%Y%m%d").date()
 
-        start_date = datetime.strptime(start_date, "%Y%m%d").date()
         if start_date >= datetime.today().date():
             return
 
         data = web.DataReader(reader_name, data_source, start_date)
 
-        records = [
-            {"date": idx.to_pydatetime(), coll_name: float(val)}
-            for idx, val in data[reader_name].items()
-        ]
+        existing_dates = set(
+            d.date() if isinstance(d, datetime) else d for d in collection.distinct("date")
+        )
+
+        records = []
+        for idx, val in data[reader_name].items():
+            dt = pd.to_datetime(idx).date()
+            if dt not in existing_dates and not pd.isna(val):
+                # date를 datetime으로 변환
+                dt_datetime = datetime(dt.year, dt.month, dt.day)
+                records.append({"date": dt_datetime, coll_name: float(val)})
 
         if not records:
             return
 
         result = collection.insert_many(records)
         count = len(result.inserted_ids)
+
     except Exception as e:
         print(f"ERROR: {e}")
     finally:
         insert_log(coll_name, count)
         
-def insert_eur_long_rate(db, coll_name="eur_long_rate"):
-    """유로존 10년 만기 장기국채 금리를 월 단위로 MongoDB에 삽입"""
-    count = 0
-    try:
-        collection = db[coll_name]
-
-        latest_doc = collection.find_one(
-            sort=[("date", -1)], projection={"date": 1, "_id": 0}
-        )
-
-        if latest_doc:
-            start_date = latest_doc["date"].strftime("%Y-%m")
-        else:
-            start_date = "2015-01"
-
-        start_dt = datetime.strptime(start_date, "%Y-%m")
-
-        df = web.DataReader("IRLTLT01EZM156N", "fred", start_dt)
-
-        # 월별 리샘플링
-        df_monthly = df.resample("M").last()
-
-        records = [
-            {"date": idx.to_pydatetime(), coll_name: float(val)}
-            for idx, val in df_monthly["IRLTLT01EZM156N"].items()
-            if pd.notnull(val)
-        ]
-
-        if records:
-            result = collection.insert_many(records)
-            count = len(result.inserted_ids)
-
-    except Exception as e:
-        print(f"ERROR: {e}")
-    finally:
-        print(f"[{coll_name}] 컬렉션에 {count}개 저장")
-
-
-
-
 
 
 def insert_with_yfinance(db: Database, coll_name: str, ticker: str):

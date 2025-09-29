@@ -30,6 +30,10 @@ def get_cached_dataset():
         dgs10 = import_from_db(db["dgs10"])
         kr_rate = import_from_db(db["kr_rate"])
         us_rate = import_from_db(db["us_rate"])
+        cny_fx_reserves = import_from_db(db["cny_fx_reserves"])
+        cny_trade_bal = import_from_db(db["cny_trade_bal"])
+        jpy10 = import_from_db(db["jpy10"])
+        eur10 = import_from_db(db["eur10"])
 
         data_list = [
             usd,
@@ -42,6 +46,10 @@ def get_cached_dataset():
             dgs10,
             kr_rate,
             us_rate,
+            cny_fx_reserves,
+            cny_trade_bal,
+            jpy10,
+            eur10
         ]
 
         for i, df in enumerate(data_list):

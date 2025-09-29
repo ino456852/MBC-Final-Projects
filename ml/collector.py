@@ -2,7 +2,6 @@ from .database import MongoDB
 from .config import config
 from .data_ingest import (
     insert_with_datareader,
-    insert_eur_long_rate,
     insert_with_yfinance,
     insert_with_ecos,
 )
@@ -17,8 +16,24 @@ if __name__ == "__main__":
     insert_with_datareader(
         db=db, coll_name="dgs10", reader_name="DGS10", data_source="fred"
     )
-    # 유로 기준 금리 
-    insert_eur_long_rate(db=db, coll_name="eur10")
+    # 중국 외환보유액 (China FX Reserves): 백만 달러 단위
+    insert_with_datareader(
+        db=db, coll_name="cny_fx_reserves", reader_name="TRESEGCNM052N", data_source="fred"
+    )
+    
+    # 중국 무역수지 (월별): 위안 단위
+    insert_with_datareader(
+        db=db, coll_name="cny_trade_bal", reader_name="XTNTVA01CNM664S", data_source="fred"
+    )
+    # eur 10년 만기 국채 수익률
+    insert_with_datareader(
+        db=db, coll_name="eur10", reader_name="IRLTLT01EZM156N", data_source="fred"
+    )
+    
+    # 일본 10년물 국채 수익률: % 단위
+    insert_with_datareader(
+        db=db, coll_name="jpy10", reader_name="IRLTLT01JPM156N", data_source="fred"
+    )
 
     # 단위: 지수 (1973.03 [고정환율 -> 변동환율 변환 시점] = 100 기준)
     insert_with_yfinance(db=db, coll_name="dxy", ticker="DX-Y.NYB")
