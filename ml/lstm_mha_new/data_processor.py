@@ -18,7 +18,7 @@ class DataProcessor:
         self.origin_data["kr_us_diff"] = (
             self.origin_data["kr_rate"] - self.origin_data["us_rate"]
         )
-        self.targets = ["usd", "cny", "jpy", "eur", "gbp"]
+        self.targets = ["usd", "cny", "jpy", "eur"]
 
     def add_indicators(self, data: pd.DataFrame, target: str):
         periods = [5, 20, 60, 120]

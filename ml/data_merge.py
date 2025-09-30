@@ -11,7 +11,6 @@ def get_cached_dataset():
     try:
         # 1. 종속변수 (환율) 가져오기 및 병합
         usd = import_from_db(db["usd"])
-        # gbp = import_from_db(db["gbp"])
         eur = import_from_db(db["eur"])
         jpy = import_from_db(db["jpy(100)"]).rename(columns={"jpy(100)": "jpy"})
 
