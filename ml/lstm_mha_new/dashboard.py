@@ -17,7 +17,7 @@ for p in (root_path, ml_path, base_path):
     if p_str not in sys.path:
         sys.path.insert(0, p_str)
 
-CURRENCIES = ["usd", "cny", "jpy", "eur", "gbp"]
+CURRENCIES = ["usd", "cny", "jpy", "eur"]
 RESULTS_PATH = base_path / "train_results.json"
 PRED_TRUE_DIR = base_path / "pred_true"
 
@@ -31,7 +31,7 @@ def load_pred_true(currency):
     csv_path = PRED_TRUE_DIR / f"{currency}_pred_true.csv"
     if not csv_path.exists():
         return None
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, index_col=0)
     return df
 
 

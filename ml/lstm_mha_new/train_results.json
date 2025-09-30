@@ -1,0 +1,50 @@
+{
+    "usd": {
+        "best_params": {
+            "lstm_units": 100,
+            "dropout_rate": 0.3,
+            "learning_rate": 0.0005
+        },
+        "metrics": {
+            "rmse": 20.310713431648225,
+            "r2": 0.9559135402575714,
+            "mape": 1.2765924526572026
+        }
+    },
+    "cny": {
+        "best_params": {
+            "lstm_units": 150,
+            "dropout_rate": 0.3,
+            "learning_rate": 0.001
+        },
+        "metrics": {
+            "rmse": 1.5338454030165178,
+            "r2": 0.9745717678311369,
+            "mape": 0.631882765586521
+        }
+    },
+    "jpy": {
+        "best_params": {
+            "lstm_units": 100,
+            "dropout_rate": 0.2,
+            "learning_rate": 0.0005
+        },
+        "metrics": {
+            "rmse": 12.518152478181834,
+            "r2": 0.9762816643991729,
+            "mape": 0.9664784170964672
+        }
+    },
+    "eur": {
+        "best_params": {
+            "lstm_units": 100,
+            "dropout_rate": 0.3,
+            "learning_rate": 0.001
+        },
+        "metrics": {
+            "rmse": 15.272663705129046,
+            "r2": 0.9382049571619208,
+            "mape": 0.8405110115335892
+        }
+    }
+}

@@ -5,7 +5,6 @@ from tensorflow import keras
 
 def load_model(target: str):
     model_path = MODEL_DIR / f"{target}{KERAS_FILE_TEMPLATE}"
-    # custom_objects 인자를 제거하여 모델을 로드합니다.
     return keras.models.load_model(
         model_path, compile=False
     )
@@ -21,18 +20,14 @@ def predict_next_day():
 
         model = load_model(target)
 
-        # feature 컬럼만 추출 (target 컬럼 제외)
         X = data.drop(columns=[target])
         X_last = X.iloc[-LOOK_BACK:]
 
-        # feature scaling
         feature_scaler = data_processor.get_feature_scaler(target=target)
         X_input_scaled = feature_scaler.transform(X_last).reshape(1, LOOK_BACK, -1)
 
-        # 예측
         y_pred_scaled = model.predict(X_input_scaled)
 
-        # 역변환
         target_scaler = data_processor.get_target_scaler(target=target)
         y_pred = target_scaler.inverse_transform(
             y_pred_scaled.reshape(-1, 1)

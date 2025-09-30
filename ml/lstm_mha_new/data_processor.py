@@ -15,10 +15,25 @@ import pandas as pd
 class DataProcessor:
     def __init__(self):
         self.origin_data = create_merged_dataset()
+        
         self.origin_data["kr_us_diff"] = (
             self.origin_data["kr_rate"] - self.origin_data["us_rate"]
         )
-        self.targets = ["usd", "cny", "jpy", "eur", "gbp"]
+        self.origin_data["dgs10_jpy10_diff"] = (
+            self.origin_data["dgs10"] - self.origin_data["jpy10"]
+        )
+        self.origin_data["dgs10_eur10_diff"] = (
+            self.origin_data["dgs10"] - self.origin_data["eur10"]
+        )
+        
+        self.targets = ["usd", "cny", "jpy", "eur"]
+
+        self.feature_map = {
+            "usd": ["dgs10", "vix", "dxy", "kr_us_diff", "kr_rate", "us_rate"],
+            "cny": ["cny_fx_reserves", "cny_trade_bal", "wti", "vix"],
+            "jpy": ["jpy10", "dgs10", "dgs10_jpy10_diff", "vix"],
+            "eur": ["eur10", "dxy", "dgs10_eur10_diff", "vix"],
+        }
 
     def add_indicators(self, data: pd.DataFrame, target: str):
         periods = [5, 20, 60, 120]
@@ -49,10 +64,6 @@ class DataProcessor:
         return np.array(Xs), np.array(ys)
 
     def save_predictions_csv(self, y_true, y_pred, target: str, index):
-        """
-        실제값과 예측값을 CSV로 저장합니다.
-        """
-        # 역변환
         scaler = self.get_target_scaler(target=target)
         y_true_inv = scaler.inverse_transform(y_true.reshape(-1, 1)).flatten()
         y_pred_inv = scaler.inverse_transform(y_pred.reshape(-1, 1)).flatten()
@@ -68,11 +79,13 @@ class DataProcessor:
     def get_proceed_data(self, target) -> pd.DataFrame:
         data = self.origin_data.copy()
 
-        # targets에 없는 컬럼들 + 타겟 컬럼만 남기고 나머지 제거
-        keep_cols = [
-            col for col in data.columns if col not in self.targets or col == target
-        ]
+        features_for_target = self.feature_map.get(target)
+        if not features_for_target:
+            raise ValueError(f"'{target}'에 대한 Feature 목록이 정의되지 않았습니다.")
+            
+        keep_cols = [target] + features_for_target
         data = data[keep_cols]
+        
         self.add_indicators(data=data, target=target)
 
         return data
@@ -89,7 +102,6 @@ class DataProcessor:
         target_scaled = target_scaler.fit_transform(y.to_frame())
         features_scaled = feature_scaler.fit_transform(X)
 
-        # scaler를 파일로 저장
         os.makedirs(SCALER_DIR, exist_ok=True)
         joblib.dump(
             target_scaler, os.path.join(SCALER_DIR, f"{target}_target_scaler.pkl")
@@ -98,7 +110,6 @@ class DataProcessor:
             feature_scaler, os.path.join(SCALER_DIR, f"{target}_feature_scaler.pkl")
         )
 
-        # 인덱스도 같이 넘김
         X_seq, y_seq, y_idxs = self.create_sequences(
             X=features_scaled, y=target_scaled, seq_len=LOOK_BACK, y_index=y.index
         )
