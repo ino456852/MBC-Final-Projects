@@ -1,15 +1,13 @@
-from typing import Optional
-import yfinance as yf
 import pandas_datareader.data as web
-from datetime import datetime, timedelta
-import httpx
+import yfinance as yf
 import pandas as pd
+import httpx
+from datetime import datetime, timedelta
 from pymongo.database import Database
-
+from typing import Optional
 
 def insert_log(name: str, count: int):
-    print(f"[{name}] 컬렉션에 {count}개를 저장했습니다")
-
+    print(f"[{name}] 컬렉션에 {count}개를 저장")
 
 def next_date(date: datetime, interval: str) -> str:
     if interval == "D":
@@ -22,7 +20,6 @@ def next_date(date: datetime, interval: str) -> str:
     if interval == "Y":
         return str(date.year + 1)
     raise ValueError(f"Unsupported interval: {interval}")
-
 
 # FRED 데이터 MongoDB 컬렉션에 삽입
 def insert_with_datareader(db: Database, coll_name: str, reader_name: str, data_source: str, interval: str = "D"):
@@ -51,7 +48,6 @@ def insert_with_datareader(db: Database, coll_name: str, reader_name: str, data_
         for idx, val in data[reader_name].items():
             dt = pd.to_datetime(idx).date()
             if dt not in existing_dates and not pd.isna(val):
-                # date를 datetime으로 변환
                 dt_datetime = datetime(dt.year, dt.month, dt.day)
                 records.append({"date": dt_datetime, coll_name: float(val)})
 
@@ -65,14 +61,10 @@ def insert_with_datareader(db: Database, coll_name: str, reader_name: str, data_
         print(f"ERROR: {e}")
     finally:
         insert_log(coll_name, count)
-        
 
-
+# YFinance 데이터 MongoDB 컬렉션에 삽입
 def insert_with_yfinance(db: Database, coll_name: str, ticker: str):
-    """YFinance API 데이터를 MongoDB 컬렉션에 삽입"""
-
     count = 0
-
     try:
         collection = db[coll_name]
 
@@ -81,10 +73,8 @@ def insert_with_yfinance(db: Database, coll_name: str, ticker: str):
         )
 
         if latest_doc:
-            # MongoDB에 저장된 마지막 날짜 이후부터 가져오기
             start_date = next_date(latest_doc["date"], "D")
         else:
-            # 컬렉션이 없거나 비어있으면 10년 전부터 가져오기
             start_date = "2015-09-01"
 
         start_date = datetime.strptime(start_date, "%Y%m%d").date()
@@ -108,21 +98,13 @@ def insert_with_yfinance(db: Database, coll_name: str, ticker: str):
     finally:
         insert_log(coll_name, count)
 
-
+# 한국은행 ECOS 데이터 MongoDB 컬렉션에 삽입
 def insert_with_ecos(
-    db: Database,
-    coll_name: str,
-    api_key: str,
-    stat_code: str,
-    interval: str,
-    code: str,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    db: Database, coll_name: str, api_key: str, stat_code: str, interval: str, code: str,
+    start_date: Optional[str] = None, end_date: Optional[str] = None,
 ):
-    """한국은행 ECOS API 데이터를 MongoDB 컬렉션에 삽입"""
 
     count = 0
-
     try:
         # interval별 설정
         date_format, default_start = {
@@ -133,7 +115,6 @@ def insert_with_ecos(
 
         collection = db[coll_name]
 
-        # MongoDB에서 마지막 날짜 조회
         latest_doc = collection.find_one(
             sort=[("date", -1)], projection={"date": 1, "_id": 0}
         )
@@ -145,12 +126,10 @@ def insert_with_ecos(
         if latest_doc:
             next_dt = next_date(latest_doc["date"], interval)
             if start_date:
-                # start_date와 DB 다음 날짜 중 큰 값을 선택
                 start_date = max(next_dt, start_date)
             else:
                 start_date = next_dt
         else:
-            # DB가 비어있으면 기본값 사용
             if not start_date:
                 start_date = default_start
 

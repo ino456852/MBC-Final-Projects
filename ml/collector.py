@@ -6,59 +6,42 @@ from .data_ingest import (
     insert_with_ecos,
 )
 
-
 if __name__ == "__main__":
     MongoDB.connect()
     db = MongoDB.get_database()
     eco_api_key = config.ECOS_API_KEY
 
-    # 단위: 퍼센트 (공휴일, 휴장일은 결측치)
-    insert_with_datareader(
-        db=db, coll_name="dgs10", reader_name="DGS10", data_source="fred"
-    )
+    # DGS10: % 단위 (공휴일/휴장일 결측치)
+    insert_with_datareader(db=db, coll_name="dgs10", reader_name="DGS10", data_source="fred")
+    
     # 중국 외환보유액 (China FX Reserves): 백만 달러 단위
-    insert_with_datareader(
-        db=db, coll_name="cny_fx_reserves", reader_name="TRESEGCNM052N", data_source="fred"
-    )
+    insert_with_datareader(db=db, coll_name="cny_fx_reserves", reader_name="TRESEGCNM052N", data_source="fred")
     
     # 중국 무역수지 (월별): 위안 단위
-    insert_with_datareader(
-        db=db, coll_name="cny_trade_bal", reader_name="XTNTVA01CNM664S", data_source="fred"
-    )
-    # eur 10년 만기 국채 수익률
-    insert_with_datareader(
-        db=db, coll_name="eur10", reader_name="IRLTLT01EZM156N", data_source="fred"
-    )
+    insert_with_datareader(db=db, coll_name="cny_trade_bal", reader_name="XTNTVA01CNM664S", data_source="fred")
+    
+    # eur 10년 만기 국채 수익률: % 단위
+    insert_with_datareader(db=db, coll_name="eur10", reader_name="IRLTLT01EZM156N", data_source="fred")
     
     # 일본 10년물 국채 수익률: % 단위
-    insert_with_datareader(
-        db=db, coll_name="jpy10", reader_name="IRLTLT01JPM156N", data_source="fred"
-    )
+    insert_with_datareader(db=db, coll_name="jpy10", reader_name="IRLTLT01JPM156N", data_source="fred")
 
     # 단위: 지수 (1973.03 [고정환율 -> 변동환율 변환 시점] = 100 기준)
     insert_with_yfinance(db=db, coll_name="dxy", ticker="DX-Y.NYB")
 
     # 한국 기준금리 (월별), 단위: 연%
-    insert_with_ecos(
-        db=db,
-        coll_name="kr_rate",
-        api_key=eco_api_key,
-        stat_code="722Y001",
-        interval="M",
-        code="0101000",
-    )
+    insert_with_ecos(db=db, coll_name="kr_rate", api_key=eco_api_key, stat_code="722Y001", interval="M", code="0101000")
 
     # 미국 기준금리 (월별), 단위: 퍼센트
-    insert_with_datareader(
-        db=db, coll_name="us_rate", reader_name="FEDFUNDS", data_source="fred"
-    )
+    insert_with_datareader(db=db, coll_name="us_rate", reader_name="FEDFUNDS", data_source="fred")
 
-    # 단위: 퍼센트 (S&P 500 옵션 가격으로 향후 30일간 예상 변동성 추정한 값)
+    # VIX: 지수 단위 (S&P 500 옵션 가격으로 향후 30일간 예상 변동성 추정한 값)
     insert_with_yfinance(db=db, coll_name="vix", ticker="^VIX")
 
-    # 단위: USD/배럴
+    # WTI: USD/배럴 단위
     insert_with_yfinance(db=db, coll_name="wti", ticker="CL=F")
 
+    # 통화 4종: USD, JPY, CNY, EUR
     insert_with_ecos(
         db=db,
         coll_name="usd",
@@ -67,15 +50,6 @@ if __name__ == "__main__":
         interval="D",
         code="0000001",
     )
-
-    # insert_with_ecos(
-    #     db=db,
-    #     coll_name="gbp",
-    #     api_key=eco_api_key,
-    #     stat_code="731Y001",
-    #     interval="D",
-    #     code="0000012",
-    # )
 
     insert_with_ecos(
         db=db,
