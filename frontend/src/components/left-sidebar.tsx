@@ -25,9 +25,9 @@ export function LeftSidebar({ isOpen }: LeftSidebarProps) {
                   <SelectValue placeholder="모델 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="vanilla">LSTM Attention</SelectItem>
-                  <SelectItem value="rolling">LSTM Attention Rolling</SelectItem>
-                  <SelectItem value="mha">LSTM MHA</SelectItem>
+                  <SelectItem value="LSTM-Rolling">LSTM-Rolling</SelectItem>
+                  <SelectItem value="Attention_LSTM-Rolling">Attention_LSTM-Rolling</SelectItem>
+                  <SelectItem value="XRGBBoost-Rolling">XRGBBoost-Rolling</SelectItem>
                 </SelectContent>
               </Select>
             </div>
