@@ -26,8 +26,8 @@ export function LeftSidebar({ isOpen }: LeftSidebarProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="LSTM-Rolling">LSTM-Rolling</SelectItem>
-                  <SelectItem value="Attention_LSTM-Rolling">Attention_LSTM-Rolling</SelectItem>
-                  <SelectItem value="XRGBBoost-Rolling">XRGBBoost-Rolling</SelectItem>
+                  {/* <SelectItem value="Attention_LSTM-Rolling">Attention_LSTM-Rolling</SelectItem> */}
+                  <SelectItem value="XGBoost-Rolling">XGBoost-Rolling</SelectItem>
                 </SelectContent>
               </Select>
             </div>

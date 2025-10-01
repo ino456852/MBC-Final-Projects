@@ -18,6 +18,8 @@ def predict_next_day():
     for target in targets:
         data = data_processor.get_proceed_data(target=target)
 
+        data.ffill(inplace=True)
+        data.dropna(inplace=True)
         model = load_model(target)
 
         X = data.drop(columns=[target])
