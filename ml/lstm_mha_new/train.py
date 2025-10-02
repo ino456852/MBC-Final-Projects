@@ -18,6 +18,7 @@ from .data_processor import DataProcessor
 
 
 def evaluate_predictions(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
+    """역변환된 실제값과 예측값으로 성능 지표를 계산합니다."""
     return {
         "rmse": np.sqrt(mean_squared_error(y_true, y_pred)),
         "r2": r2_score(y_true, y_pred),
@@ -26,6 +27,7 @@ def evaluate_predictions(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
 
 
 def rolling_split_index(total_len, train_size=1200, test_size=300):
+    """롤링 윈도우 방식으로 train/test 인덱스 배열을 생성합니다."""
     for start in range(0, total_len - train_size - test_size + 1, test_size):
         yield (
             np.arange(start, start + train_size),
@@ -34,6 +36,7 @@ def rolling_split_index(total_len, train_size=1200, test_size=300):
 
 
 def find_best_hyperparams(X_train, y_train, X_val, y_val, num_features):
+    """주어진 데이터셋에서 최적의 하이퍼파라미터를 탐색합니다."""
     hyperparams_candidates = {
         "lstm_units": [100, 150],
         "dropout_rate": [0.2, 0.3],
@@ -79,14 +82,27 @@ def train():
     targets = data_processor.targets
     results = {}
 
+    results_file = BASE_DIR / "train_results.json"
+    existing_results = {}
+    if results_file.exists():
+        with open(results_file, "r", encoding="utf-8") as f:
+            existing_results = json.load(f)
+
     for target in targets:
+        model_path = MODEL_DIR / f"{target}{KERAS_FILE_TEMPLATE}"
+        if model_path.exists():
+            print(f"✅ {target.upper()} 모델 파일이 이미 존재하므로 학습을 건너뜁니다.")
+            if target in existing_results:
+                results[target] = existing_results[target]
+            continue
+
         X_seq, y_seq, y_idxs = data_processor.get_sequence_data(target=target)
 
         y_preds_all, y_true_all, y_idxs_all = [], [], []
         best_params = None
 
         total_len = len(X_seq)
-        print(f"✅ {target.upper()} 모델 학습 시작 (총 {total_len}개 시퀀스)")
+        print(f"✅ {target.upper()} 모델 신규 학습 시작 (총 {total_len}개 시퀀스)")
 
         for i, (train_idx, test_idx) in enumerate(rolling_split_index(total_len)):
             X_train, y_train = X_seq[train_idx], y_seq[train_idx]
@@ -101,7 +117,7 @@ def train():
                     f"   - 최적 하이퍼파라미터: LSTM Units={best_params[0]}, Dropout={best_params[1]}, LR={best_params[2]}"
                 )
 
-            print(f"   - 롤링 윈도우 {i+1} 학습 및 예측 수행...")
+            print(f"   - 롤링 윈도우 {i + 1} 학습 및 예측 수행...")
             model = build_model(LOOK_BACK, X_seq.shape[2], *best_params)
             model.fit(
                 X_train, y_train, epochs=50, batch_size=32, shuffle=False, verbose=0
@@ -146,9 +162,9 @@ def train():
         }
         results[target] = {"best_params": best_params_dict, "metrics": metrics}
 
-    with open(BASE_DIR / "train_results.json", "w", encoding="utf-8") as f:
+    with open(results_file, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=4)
-    print("✨ 모든 학습이 완료되었습니다.")
+    print("✨ 모든 학습/결과 처리가 완료되었습니다.")
 
 
 if __name__ == "__main__":
