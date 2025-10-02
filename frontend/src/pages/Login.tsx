@@ -44,11 +44,11 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">사용자 이름</Label>
+              <Label htmlFor="username">닉네임</Label>
               <Input
                 id="username"
                 type="text"
-                placeholder="사용자 이름을 입력하세요"
+                placeholder="닉네임을 입력하세요"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
