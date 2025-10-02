@@ -58,29 +58,17 @@ class DataProcessor:
             ys.append(y[i + seq_len])
             if y_index is not None:
                 idxs.append(y_index[i + seq_len])
+        
         if y_index is not None:
-            return np.array(Xs), np.array(ys).flatten(), np.array(idxs)
-        return np.array(Xs), np.array(ys).flatten()
-
-    def save_predictions_csv(self, y_true, y_pred, target: str, index):
-        scaler = self.get_target_scaler(target=target)
-        y_true_inv = scaler.inverse_transform(y_true.reshape(-1, 1)).flatten()
-        y_pred_inv = scaler.inverse_transform(y_pred.reshape(-1, 1)).flatten()
-
-        df = pd.DataFrame({"true": y_true_inv, "pred": y_pred_inv})
-        df.index = index
-
-        csv_file = f"{target}_{PRED_TRUE_CSV}"
-        os.makedirs(PRED_TRUE_DIR, exist_ok=True)
-        df.to_csv(PRED_TRUE_DIR / csv_file)
-        print(f"Saved: {csv_file}")
+            return np.array(Xs), np.array(ys), np.array(idxs)
+        return np.array(Xs), np.array(ys)
 
     def get_proceed_data(self, target) -> pd.DataFrame:
         data = self.origin_data.copy()
 
         features_for_target = self.feature_map.get(target)
         if not features_for_target:
-            raise ValueError(f"'{target}'에 대한 Feature 목록이 정의되지 않음.")
+            raise ValueError(f"'{target}'에 대한 Feature 목록이 정의되지 않았습니다.")
             
         keep_cols = [target] + features_for_target
         data = data[keep_cols]
@@ -98,11 +86,9 @@ class DataProcessor:
         target_scaler = MinMaxScaler()
         feature_scaler = MinMaxScaler()
 
-        # 데이터 스케일링 및 적합
         target_scaled = target_scaler.fit_transform(y.to_frame())
         features_scaled = feature_scaler.fit_transform(X)
 
-        # 스케일러 저장
         os.makedirs(SCALER_DIR, exist_ok=True)
         joblib.dump(
             target_scaler, os.path.join(SCALER_DIR, f"{target}_target_scaler.pkl")
@@ -111,7 +97,6 @@ class DataProcessor:
             feature_scaler, os.path.join(SCALER_DIR, f"{target}_feature_scaler.pkl")
         )
 
-        # 시퀀스 생성
         X_seq, y_seq, y_idxs = self.create_sequences(
             X=features_scaled, y=target_scaled, seq_len=LOOK_BACK, y_index=y.index
         )

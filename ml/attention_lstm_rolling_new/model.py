@@ -1,24 +1,36 @@
-import tensorflow as tf
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
-class Attention(tf.keras.layers.Layer):
-    def build(self, input_shape):
-        self.dense1 = tf.keras.layers.Dense(input_shape[-1], activation="tanh")
-        self.dense2 = tf.keras.layers.Dense(1)
-        super().build(input_shape)
+class Attention(nn.Module):
+    def __init__(self, hidden_size):
+        super(Attention, self).__init__()
+        self.dense1 = nn.Linear(hidden_size, hidden_size, bias=False)
+        self.dense2 = nn.Linear(hidden_size, 1, bias=False)
 
-    def call(self, x):
-        score = self.dense2(self.dense1(x))
-        weights = tf.nn.softmax(score, axis=1)
-        return tf.reduce_sum(x * weights, axis=1)
+    def forward(self, x):
+        score = self.dense2(torch.tanh(self.dense1(x)))
+        weights = F.softmax(score, dim=1)
+        context_vector = torch.sum(x * weights, dim=1)
+        return context_vector
 
-def build_model(look_back, num_features, lstm_units=150, dropout_rate=0.3, learning_rate=0.001):
-    inputs = tf.keras.Input(shape=(look_back, num_features))
-    x = tf.keras.layers.Bidirectional(
-        tf.keras.layers.LSTM(lstm_units, return_sequences=True)
-    )(inputs)
-    x = Attention()(x)
-    x = tf.keras.layers.Dropout(dropout_rate)(x)
-    outputs = tf.keras.layers.Dense(1)(x)
-    model = tf.keras.Model(inputs, outputs)
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate), loss="mse")
-    return model
+class AttentionLSTM(nn.Module):
+    def __init__(self, num_features, lstm_units=150, dropout_rate=0.3):
+        super(AttentionLSTM, self).__init__()
+        self.lstm = nn.LSTM(
+            input_size=num_features,
+            hidden_size=lstm_units,
+            num_layers=1,
+            batch_first=True,
+            bidirectional=True
+        )
+        self.attention = Attention(lstm_units * 2)
+        self.dropout = nn.Dropout(dropout_rate)
+        self.fc = nn.Linear(lstm_units * 2, 1)
+
+    def forward(self, x):
+        lstm_out, _ = self.lstm(x)
+        context_vector = self.attention(lstm_out)
+        out = self.dropout(context_vector)
+        out = self.fc(out)
+        return out

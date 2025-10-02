@@ -15,9 +15,9 @@ def insert_predicted_price():
     results.append(
         {"date": today, "model": "LSTM-Rolling", **lstm_predict.predict_next_day()}
     )
-    # results.append(
-    #     {"date": today, "model": "Attention_LSTM-Rolling", **attention_lstm_rolling_predict.predict_next_day()}
-    # )
+    results.append(
+        {"date": today, "model": "Attention_LSTM-Rolling", **attention_lstm_rolling_predict.predict_next_day()}
+    )
     results.append(
         {"date": today, "model": "XGBoost-Rolling", **XGBoost_predict.predict_next_day()}
     )

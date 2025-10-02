@@ -1,8 +1,8 @@
 import { useState } from "react"
-import { DashboardHeader } from "@/components/dashboard-header"
-import { LeftSidebar } from "@/components/left-sidebar"
-import { ChartArea } from "@/components/chart-area"
-import { ChatSidebar } from "@/components/chat-sidebar"
+import { DashboardHeader } from "@/pages/dashboard/dashboard-header"
+import { LeftSidebar } from "@/pages/dashboard/left-sidebar"
+import { ChartArea } from "@/pages/dashboard/chart-area"
+import { ChatSidebar } from "@/pages/dashboard/chat-sidebar"
 
 export default function Dashboard() {
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true)
