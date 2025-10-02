@@ -2,167 +2,193 @@ import tensorflow as tf
 import numpy as np
 import json, os
 from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error, r2_score
-from .constant import (BASE_DIR, KERAS_FILE_TEMPLATE, LOOK_BACK, MODEL_DIR) 
+from .constant import (BASE_DIR, KERAS_FILE_TEMPLATE, LOOK_BACK, MODEL_DIR, PRED_TRUE_DIR)
 from .data_processor import DataProcessor
 from .model import build_model
 from itertools import product
+import pandas as pd
 
-# 성능지표 계산
 def evaluate_predictions(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
+    valid_indices = ~np.isnan(y_true) & ~np.isnan(y_pred)
+    y_true_valid = y_true[valid_indices]
+    y_pred_valid = y_pred[valid_indices]
+
+    if len(y_true_valid) == 0:
+        return {"rmse": np.nan, "r2": np.nan, "mape": np.nan}
+
     return {
-        "rmse": np.sqrt(mean_squared_error(y_true, y_pred)),
-        "r2": r2_score(y_true, y_pred),
-        "mape": mean_absolute_percentage_error(y_true, y_pred) * 100,
+        "rmse": np.sqrt(mean_squared_error(y_true_valid, y_pred_valid)),
+        "r2": r2_score(y_true_valid, y_pred_valid),
+        "mape": mean_absolute_percentage_error(y_true_valid, y_pred_valid) * 100,
     }
 
-# rolling window 방식으로 학습/테스트 인덱스 생성 함수
-def rolling_split_index(total_len, train_size=1200, test_size=300, step=300):
-    for start in range(0, total_len - train_size - test_size + 1, step):
+def rolling_split_index(total_len, train_size=1200, test_size=300):
+    for start in range(0, total_len - train_size - test_size + 1, test_size):
         yield (
             np.arange(start, start + train_size),
             np.arange(start + train_size, start + train_size + test_size),
         )
 
-def train():
-    data_processor = DataProcessor()
-    targets = data_processor.targets
-    all_results = {}
-
-    # 하이퍼파라미터 후보
-    HYPERPARAMS_CANDIDATES = {
+def find_best_hyperparams(X_train_seq, y_train_seq, X_val_seq, y_val_seq, num_features):
+    hyperparams_candidates = {
         "lstm_units": [100, 150],
         "dropout_rate": [0.2, 0.3],
         "learning_rate": [0.001, 0.0005],
-        "batch_size": [32, 64]
     }
-    
-    all_param_combinations = list(product(
-        HYPERPARAMS_CANDIDATES["lstm_units"],
-        HYPERPARAMS_CANDIDATES["dropout_rate"],
-        HYPERPARAMS_CANDIDATES["learning_rate"],
-        HYPERPARAMS_CANDIDATES["batch_size"]
-    ))
-    
+
+    best_val_loss = float("inf")
+    best_params = None
+
+    for lstm_units, dropout_rate, learning_rate in product(
+        *hyperparams_candidates.values()
+    ):
+        model = build_model(
+            LOOK_BACK, num_features, lstm_units, dropout_rate, learning_rate
+        )
+        callbacks = [
+            tf.keras.callbacks.EarlyStopping(
+                monitor="val_loss", patience=3, restore_best_weights=True
+            )
+        ]
+
+        history = model.fit(
+            X_train_seq,
+            y_train_seq,
+            validation_data=(X_val_seq, y_val_seq),
+            epochs=30,
+            batch_size=32,
+            callbacks=callbacks,
+            shuffle=False,
+            verbose=1,
+        )
+
+        val_loss = min(history.history["val_loss"])
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_params = (lstm_units, dropout_rate, learning_rate, 32) 
+
+    return best_params
+
+def train():
+    data_processor = DataProcessor()
+    targets = data_processor.targets
+    results = {}
+    train_size = 1200
+    test_size = 300
+
+    results_file = BASE_DIR / "train_results.json"
+    existing_results = {}
+    if results_file.exists():
+        with open(results_file, "r", encoding="utf-8") as f:
+            existing_results = json.load(f)
+
     for target in targets:
-        print(f"\n 학습 시작: {target.upper()}")
-        X_seq, y_seq, y_idxs = data_processor.get_sequence_data(target=target)
-        total_len_seq = len(X_seq)
-        train_size = 1200 
-        test_size = 300 
-        val_losses_per_param = {} 
+        model_path = MODEL_DIR / f"{target}{KERAS_FILE_TEMPLATE}"
+        if model_path.exists():
+            print(f"{target.upper()} 모델 파일 이미 존재. 학습 생략.")
+            if target in existing_results:
+                results[target] = existing_results[target]
+            continue
+            
+        X_seq_full, y_seq_full, y_idxs_full = data_processor.get_sequence_data(target=target)
         
-        y_pred_all, y_true_all, y_idxs_all = [], [], []
-        
-        splits = list(rolling_split_index(total_len_seq, train_size, test_size, step=300))[:5]
-        
-        if not splits:
-             print(f"데이터 부족으로 {target} 학습 건너뜀")
-             all_results[target] = None 
+        total_len_seq = len(X_seq_full)
+        num_features = X_seq_full.shape[2]
+
+        seq_splits = list(rolling_split_index(total_len_seq, train_size, test_size))
+
+        if not seq_splits:
+             print(f"데이터 부족 {target} 학습 생략")
+             results[target] = None
              continue
         
-        # 스케일러 미리 로드
-        target_scaler = data_processor.get_target_scaler(target)
+        y_preds_all, y_true_all, y_idxs_all = [], [], []
         best_params = None
-        best_model_weights = None
-        val_losses_per_param = {}
+        
+        print(f"{target.upper()} 모델 학습 (총 {len(seq_splits)}개 롤링 윈도우)")
 
-        # Rolling Window 교차 검증을 통한 최적 하이퍼파라미터 탐색
-        for i, (train_idx, test_idx) in enumerate(splits):
-            print(f"\n Fold {i+1}/{len(splits)} 시작")
-            X_train, y_train = X_seq[train_idx], y_seq[train_idx]
-            X_test, y_test = X_seq[test_idx], y_seq[test_idx]
-            y_test_idx = y_idxs[test_idx].flatten()
+        # 2. 롤링 윈도우 교차 검증
+        for i, (train_seq_idx, test_seq_idx) in enumerate(seq_splits):
+            
+            X_train_seq = X_seq_full[train_seq_idx]
+            y_train_seq = y_seq_full[train_seq_idx]
+            X_test_seq = X_seq_full[test_seq_idx]
+            y_test_seq = y_seq_full[test_seq_idx]
+            y_test_idxs_seq = y_idxs_full[test_seq_idx]
             
             if i == 0:
-                best_val_loss = float("inf")
-                best_fold_model = None
-                for params in all_param_combinations:
-                    lstm_units, dropout_rate, learning_rate, batch_size = params
-                    model = build_model(LOOK_BACK, X_train.shape[2], lstm_units, dropout_rate, learning_rate)
-                    early_stop = tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=3, restore_best_weights=True)
+                print("최적 하이퍼파라미터 탐색")
+                best_params = find_best_hyperparams(
+                    X_train_seq, y_train_seq, X_test_seq, y_test_seq, num_features
+                )
+                if best_params is None:
+                    print("하이퍼파라미터 탐색 실패, 기본값 (150, 0.3, 0.001, 32) 사용.")
+                    best_params = (150, 0.3, 0.001, 32) 
+                    
+                print(
+                    f"최적 하이퍼파라미터: LSTM Units={best_params[0]}, Dropout={best_params[1]}, LR={best_params[2]}, Batch Size={best_params[3]}"
+                )
+            
+            lstm_units, dropout_rate, learning_rate, batch_size = best_params
+            print(f"롤링 윈도우 {i + 1} 학습 및 예측")
+            
+            model = build_model(LOOK_BACK, num_features, lstm_units, dropout_rate, learning_rate)
+            model.fit(
+                X_train_seq, y_train_seq, epochs=50, batch_size=batch_size, shuffle=False, verbose=0
+            )
 
-                    print(f" - 하이퍼파라미터 테스트: {params}")
-                    history = model.fit(
-                        X_train, y_train,
-                        validation_data=(X_test, y_test),
-                        epochs=30, batch_size=batch_size,
-                        callbacks=[early_stop],
-                        shuffle=False, verbose=1
-                    )
+            y_pred = model.predict(X_test_seq, verbose=0)
 
-                    val_loss = min(history.history["val_loss"])
-                    val_losses_per_param.setdefault(params, []).append(val_loss)
+            y_preds_all.append(y_pred)
+            y_true_all.append(y_test_seq)
+            y_idxs_all.append(y_test_idxs_seq)
 
-                    if val_loss < best_val_loss:
-                        best_val_loss = val_loss
-                        best_params = params
-                        best_fold_model = model
-                
-                print(f"최적 하이퍼파라미터: {best_params}, val_loss={best_val_loss:.4f}")
-                model = best_fold_model
-            else:
-                print(f"최적 하이퍼파라미터로 모델 학습")
-                lstm_units, dropout_rate, learning_rate, batch_size = best_params
-                model = build_model(LOOK_BACK, X_train.shape[2], lstm_units, dropout_rate, learning_rate)
-            if i > 0:
-                model.fit(X_train, y_train, epochs=5, batch_size=batch_size, shuffle=False, verbose=1)
-            y_pred = model.predict(X_test, verbose=1)
-            y_pred_all.append(y_pred)
-            y_true_all.append(y_test)
-            y_idxs_all.append(y_test_idx)
+        y_pred_concat = np.concatenate(y_preds_all)
+        y_true_concat = np.concatenate(y_true_all)
+        y_idxs_concat = np.concatenate(y_idxs_all)
+        
+        # 3. 역변환 및 평가
+        target_scaler = data_processor.get_target_scaler(target)
+        
+        y_true_inv = target_scaler.inverse_transform(y_true_concat.reshape(-1, 1))
+        y_pred_inv = target_scaler.inverse_transform(y_pred_concat.reshape(-1, 1))
+        
+        metrics = evaluate_predictions(y_true_inv.flatten(), y_pred_inv.flatten())
 
-        # 전체 예측 평가
-        if y_pred_all:
-            y_pred_concat = np.concatenate(y_pred_all)
-            y_true_concat = np.concatenate(y_true_all)
-            y_idxs_concat = np.concatenate(y_idxs_all)
+        print(f"\n{target.upper()} 최종 성능 평가 → RMSE={metrics['rmse']:.4f}, R2={metrics['r2']:.4f}, MAPE={metrics['mape']:.2f}%")
 
-            y_true_inv = target_scaler.inverse_transform(y_true_concat.reshape(-1, 1)).flatten()
-            y_pred_inv = target_scaler.inverse_transform(y_pred_concat.reshape(-1, 1)).flatten()
+        # 4. 예측 결과 저장
+        pred_df = pd.DataFrame(
+            {"true": y_true_inv.flatten(), "pred": y_pred_inv.flatten()},
+            index=y_idxs_concat,
+        )
+        os.makedirs(PRED_TRUE_DIR, exist_ok=True)
+        pred_df.to_csv(PRED_TRUE_DIR / f"{target}_pred_true.csv")
+        print(f"저장: {target}_pred_true.csv")
 
-            metrics = evaluate_predictions(y_true_inv, y_pred_inv)
-            print(f"\n{target.upper()} 성능 평가 → RMSE={metrics['rmse']:.4f}, R2={metrics['r2']:.4f}, MAPE={metrics['mape']:.2f}%")
-
-            data_processor.save_predictions_csv(y_true_concat, y_pred_concat, target=target, index=y_idxs_concat)
-            print(f"예측 결과 저장 완료: {target}_pred_true.csv")
-        else:
-            metrics = {"rmse": np.nan, "r2": np.nan, "mape": np.nan}
-            print("예측 결과 없음. 평가 생략.")
-
-        # 전체 데이터로 최종 모델 학습 및 저장
-        print("최종 모델 전체 데이터로 학습")
-        lstm_units, dropout_rate, learning_rate, batch_size = best_params
-        final_model = build_model(LOOK_BACK, X_seq.shape[2], lstm_units, dropout_rate, learning_rate)
-        final_model.fit(X_seq, y_seq, epochs=30, batch_size=batch_size, shuffle=False, verbose=1)
+        # 5. 전체 데이터로 최종 모델 학습 및 저장
+        print("전체 데이터로 최종 모델 학습 및 저장")
+        
+        final_model = build_model(LOOK_BACK, num_features, lstm_units, dropout_rate, learning_rate)
+        final_model.fit(
+            X_seq_full, y_seq_full, epochs=50, batch_size=batch_size, shuffle=False, verbose=1
+        )
 
         os.makedirs(MODEL_DIR, exist_ok=True)
-        final_model.save(os.path.join(MODEL_DIR, f"{target}{KERAS_FILE_TEMPLATE}"))
-        print(f"모델 저장 완료: {target}{KERAS_FILE_TEMPLATE}")
+        final_model.save(MODEL_DIR / f"{target}{KERAS_FILE_TEMPLATE}")
+        print(f"모델 저장: {target}{KERAS_FILE_TEMPLATE}")
 
-        scaler_info = {
-            "min": target_scaler.min_.tolist(),
-            "scale": target_scaler.scale_.tolist(),
-            "data_min": target_scaler.data_min_.tolist(),
-            "data_max": target_scaler.data_max_.tolist(),
-            "feature_range": target_scaler.feature_range
+        best_params_dict = {
+            "lstm_units": best_params[0],
+            "dropout_rate": best_params[1],
+            "learning_rate": best_params[2],
+            "batch_size": best_params[3],
         }
+        results[target] = {"best_params": best_params_dict, "metrics": metrics}
 
-        all_results[target] = {
-            "best_params": {
-                "lstm_units": best_params[0],
-                "dropout_rate": best_params[1],
-                "learning_rate": best_params[2],
-                "batch_size": best_params[3]
-            },
-            "metrics": metrics,
-            "scaler": scaler_info
-        }
-
-    with open(os.path.join(BASE_DIR, "train_results.json"), "w", encoding="utf-8") as f:
-        json.dump(all_results, f, ensure_ascii=False, indent=4)
-
-    print("\n전체 학습 및 저장 완료")
-    return all_results
+    with open(results_file, "w", encoding="utf-8") as f:
+        json.dump(results, f, ensure_ascii=False, indent=4)
+    print("모든 학습/결과 처리 완료.")
 
 if __name__ == "__main__":
     train()

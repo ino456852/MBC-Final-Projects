@@ -29,7 +29,7 @@ def load_pred_true(currency):
     csv_path = PRED_TRUE_DIR / f"{currency}_pred_true.csv"
     if not csv_path.exists():
         return None
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, index_col=0)
     return df
 
 def generate_metrics_table(metrics_dict: dict) -> str:
