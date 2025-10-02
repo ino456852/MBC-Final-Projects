@@ -1,6 +1,6 @@
 services:
   kafka:
-    image: bitnami/kafka:4.0
+    image: bitnamilegacy/kafka:4.0
     container_name: kafka
     ports:
       - "9092:9092" # 호스트에서 접근
