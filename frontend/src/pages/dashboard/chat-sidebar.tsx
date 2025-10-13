@@ -22,7 +22,7 @@ export function ChatSidebar({ isOpen }: ChatSidebarProps) {
   const ws = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    ws.current = new WebSocket("ws://localhost:8000/ws/chat")
+    ws.current = new WebSocket("/ws/chat")
     ws.current.onopen = () => setWsConnected(true)
     ws.current.onclose = () => setWsConnected(false)
     ws.current.onerror = () => setWsConnected(false)

@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 import time
 import asyncio
 from fastapi import FastAPI, Response, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from modules.mongodb import MongoDB
@@ -55,14 +54,6 @@ app.include_router(router=chat_router)
 app.include_router(router=dashboard_router)
 register_chat_ws(app=app)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # 프론트엔드 도메인
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -109,3 +100,9 @@ async def add_process_time_header(request: Request, call_next) -> Response:
             )
         )
     return response
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

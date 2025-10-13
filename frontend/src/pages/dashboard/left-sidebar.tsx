@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -42,9 +42,8 @@ export function LeftSidebar({ isOpen, visibleItems, setVisibleItems }: LeftSideb
 
   return (
     <aside
-      className={`bg-card border-r border-border transition-all duration-300 flex-shrink-0 h-full ${
-        isOpen ? "w-64" : "w-0 overflow-hidden"
-      }`}
+      className={`bg-card border-r border-border transition-all duration-300 flex-shrink-0 h-full ${isOpen ? "w-64" : "w-0 overflow-hidden"
+        }`}
     >
       <div className="p-4 space-y-4 w-64 h-full overflow-y-auto">
         <h3 className="font-medium text-foreground">차트 설정</h3>

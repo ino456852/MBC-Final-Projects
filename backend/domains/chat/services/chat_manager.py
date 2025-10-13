@@ -21,7 +21,10 @@ class ChatRoomManager:
         old_ws = cls.sockets.get(uid, None)
 
         if old_ws:
-            old_ws.close()
+            try:
+                await old_ws.close()
+            except RuntimeError:
+                pass
 
         cls.sockets[uid] = ws
 

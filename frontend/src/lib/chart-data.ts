@@ -1,13 +1,10 @@
-import { BASE_URL } from "@/constant";
-
 export async function fetchCurrencyData(currency: string) {
-  const res = await fetch(`${BASE_URL}/dashboard?currency=${currency}`);
+  const res = await fetch(`/api/dashboard?currency=${currency}`);
   if (!res.ok) throw new Error(`Failed to fetch ${currency} data`);
   return res.json();
 }
 
 export const CURRENCY_OPTIONS = ["usd", "eur", "jpy", "cny"] as const;
-
 
 export const INDICATOR_COLORS = [
   { key: "SMA_5", color: "#FF6384" },

@@ -8,8 +8,8 @@ import {
   LinearScale,
   Legend,
   Tooltip,
-  ChartData,
-  ChartOptions,
+  type ChartData,
+  type ChartOptions,
 } from "chart.js";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";

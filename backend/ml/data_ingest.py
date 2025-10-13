@@ -6,8 +6,10 @@ from datetime import datetime, timedelta
 from pymongo.database import Database
 from typing import Optional
 
+
 def insert_log(name: str, count: int):
     print(f"[{name}] 컬렉션에 {count}개를 저장")
+
 
 def next_date(date: datetime, interval: str) -> str:
     if interval == "D":
@@ -21,15 +23,26 @@ def next_date(date: datetime, interval: str) -> str:
         return str(date.year + 1)
     raise ValueError(f"Unsupported interval: {interval}")
 
+
 # FRED 데이터 MongoDB 컬렉션에 삽입
-def insert_with_datareader(db: Database, coll_name: str, reader_name: str, data_source: str, interval: str = "D"):
+def insert_with_datareader(
+    db: Database,
+    coll_name: str,
+    reader_name: str,
+    data_source: str,
+    interval: str = "D",
+):
     count = 0
     try:
         collection = db[coll_name]
 
-        latest_doc = collection.find_one(sort=[("date", -1)], projection={"date": 1, "_id": 0})
-        start_date = next_date(latest_doc["date"], interval) if latest_doc else "20150901"
-        
+        latest_doc = collection.find_one(
+            sort=[("date", -1)], projection={"date": 1, "_id": 0}
+        )
+        start_date = (
+            next_date(latest_doc["date"], interval) if latest_doc else "20150901"
+        )
+
         if interval == "M":
             start_date = datetime.strptime(start_date, "%Y%m").date()
         else:
@@ -41,7 +54,8 @@ def insert_with_datareader(db: Database, coll_name: str, reader_name: str, data_
         data = web.DataReader(reader_name, data_source, start_date)
 
         existing_dates = set(
-            d.date() if isinstance(d, datetime) else d for d in collection.distinct("date")
+            d.date() if isinstance(d, datetime) else d
+            for d in collection.distinct("date")
         )
 
         records = []
@@ -61,6 +75,7 @@ def insert_with_datareader(db: Database, coll_name: str, reader_name: str, data_
         print(f"ERROR: {e}")
     finally:
         insert_log(coll_name, count)
+
 
 # YFinance 데이터 MongoDB 컬렉션에 삽입
 def insert_with_yfinance(db: Database, coll_name: str, ticker: str):
@@ -98,12 +113,18 @@ def insert_with_yfinance(db: Database, coll_name: str, ticker: str):
     finally:
         insert_log(coll_name, count)
 
+
 # 한국은행 ECOS 데이터 MongoDB 컬렉션에 삽입
 def insert_with_ecos(
-    db: Database, coll_name: str, api_key: str, stat_code: str, interval: str, code: str,
-    start_date: Optional[str] = None, end_date: Optional[str] = None,
+    db: Database,
+    coll_name: str,
+    api_key: str,
+    stat_code: str,
+    interval: str,
+    code: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
 ):
-
     count = 0
     try:
         # interval별 설정
@@ -164,7 +185,18 @@ def insert_with_ecos(
         data["date"] = pd.to_datetime(data["date"], format=date_format)
         data[coll_name] = data[coll_name].astype(float)
 
-        records = data.to_dict("records")
+        # 기존 날짜 조회하여 중복 방지
+        existing_dates = {
+            d.date() if isinstance(d, datetime) else d
+            for d in collection.distinct("date")
+        }
+
+        records = [
+            {"date": row["date"], coll_name: row[coll_name]}
+            for _, row in data.iterrows()
+            if row["date"].date() not in existing_dates
+        ]
+
         if not records:
             return
 

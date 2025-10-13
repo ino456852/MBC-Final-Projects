@@ -3,6 +3,7 @@ from datetime import datetime
 from .database import MongoDB
 from .data_import import import_from_db
 
+
 def get_cached_dataset():
     MongoDB.connect()
     db = MongoDB.get_database()
@@ -33,16 +34,26 @@ def get_cached_dataset():
         cny_trade_bal = import_from_db(db["cny_trade_bal"])
 
         data_list = [
-            usd, eur, jpy, cny_merged,
-            vix, dxy, wti, dgs10, jpy10, eur10,
-            kr_rate, us_rate,
-            cny_fx_reserves, cny_trade_bal
+            usd,
+            eur,
+            jpy,
+            cny_merged,
+            vix,
+            dxy,
+            wti,
+            dgs10,
+            jpy10,
+            eur10,
+            kr_rate,
+            us_rate,
+            cny_fx_reserves,
+            cny_trade_bal,
         ]
 
         for i, df in enumerate(data_list):
             df["date"] = pd.to_datetime(df["date"])
             df.set_index("date", inplace=True)
-            
+
             # 중복 제거
             if df.index.has_duplicates:
                 col_name = df.columns[0] if not df.columns.empty else "Unknown"
@@ -67,9 +78,11 @@ def get_cached_dataset():
     finally:
         MongoDB.close()
 
+
 def create_merged_dataset():
     gen = get_cached_dataset()
     return next(gen)
+
 
 if __name__ == "__main__":
     dataset = create_merged_dataset().round(4)

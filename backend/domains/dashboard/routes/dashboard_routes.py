@@ -5,9 +5,10 @@ from ml.data_merge import create_merged_dataset
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
-@router.get("/")
+
+@router.get("")
 async def dashboard(
-    currency: str = Query("usd", description="조회할 통화 코드 (예: usd, eur, jpy)")
+    currency: str = Query("usd", description="조회할 통화 코드 (예: usd, eur, jpy)"),
 ):
     db = MongoDB.get_database()
 
@@ -39,10 +40,9 @@ async def dashboard(
     df = pd.DataFrame(results)
 
     # predicted_prices 변환
-    predicted_df = df.pivot(index="date", columns="model", values=currency).reset_index()
+    predicted_df = df.pivot(
+        index="date", columns="model", values=currency
+    ).reset_index()
     predicted_prices = predicted_df.to_dict(orient="records")
 
-    return {
-        "real_prices": real_prices,
-        "predicted_prices": predicted_prices
-    }
+    return {"real_prices": real_prices, "predicted_prices": predicted_prices}
