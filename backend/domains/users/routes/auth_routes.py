@@ -38,9 +38,11 @@ async def login_user(login_request: LoginRequest, response: Response) -> dict:
         key="session_id",
         value=session_id,
         httponly=True,
-        secure=True,
-        samesite="none",
+        secure=False,
+        samesite="lax",
         max_age=SESSION_TTL,
+        path="/",
+        domain=None,
     )
 
     return {"message": "Login successful"}
@@ -67,6 +69,13 @@ async def logout_user(response: Response, session_id: str = Cookie(None)) -> dic
     if deleted == 0:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
 
-    response.delete_cookie(key="session_id", httponly=True, secure=True, samesite="lax")
+    response.delete_cookie(
+        key="session_id",
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        path="/",
+        domain=None,
+    )
 
     return {"message": "Logout successful"}
