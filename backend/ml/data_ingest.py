@@ -72,7 +72,7 @@ def insert_with_datareader(
         count = len(result.inserted_ids)
 
     except Exception as e:
-        print(f"ERROR: {e}")
+        print(f"ERROR [{coll_name}]: {e}")
     finally:
         insert_log(coll_name, count)
 
@@ -90,13 +90,13 @@ def insert_with_yfinance(db: Database, coll_name: str, ticker: str):
         if latest_doc:
             start_date = next_date(latest_doc["date"], "D")
         else:
-            start_date = "2015-09-01"
+            start_date = "20150901"
 
         start_date = datetime.strptime(start_date, "%Y%m%d").date()
         if start_date >= datetime.today().date():
             return
 
-        data = yf.download(ticker, start=start_date, interval="1d")["Close"]
+        data = yf.download(ticker, start=start_date, interval="1d", timeout=30)["Close"]
 
         records = [
             {"date": idx, coll_name: float(val)}
@@ -109,7 +109,7 @@ def insert_with_yfinance(db: Database, coll_name: str, ticker: str):
         result = collection.insert_many(records)
         count = len(result.inserted_ids)
     except Exception as e:
-        print(f"ERROR: {e}")
+        print(f"ERROR [{coll_name} - yfinance]: {e}")
     finally:
         insert_log(coll_name, count)
 
@@ -171,7 +171,7 @@ def insert_with_ecos(
 
         url = f"https://ecos.bok.or.kr/api/StatisticSearch/{api_key}/json/kr/1/5000/{stat_code}/{interval}/{start_date}/{end_date}/{code}"
 
-        response = httpx.get(url)
+        response = httpx.get(url, timeout=30.0)
         data = response.json()
 
         if not data.get("StatisticSearch"):
@@ -203,6 +203,6 @@ def insert_with_ecos(
         result = collection.insert_many(records)
         count = len(result.inserted_ids)
     except Exception as e:
-        print(f"ERROR: {e}")
+        print(f"ERROR [{coll_name} - ECOS]: {e}")
     finally:
         insert_log(coll_name, count)
