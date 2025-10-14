@@ -1,6 +1,4 @@
 import os
-from pathlib import Path
-import sys
 import json
 import pandas as pd
 import numpy as np
@@ -9,21 +7,13 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from plotly.subplots import make_subplots
 
-base_path = Path(__file__).resolve().parent
-ml_path = base_path.parent
-root_path = base_path.parent.parent
-for p in (root_path, ml_path, base_path):
-    p_str = str(p)
-    if p_str not in sys.path:
-        sys.path.insert(0, p_str)
+from .constant import PRED_TRUE_DIR, TRAIN_RESULT, CURRENCIES
 
-CURRENCIES = ["usd", "cny", "jpy", "eur"]
-RESULTS_PATH = base_path / "train_results.json"
-PRED_TRUE_DIR = base_path / "pred_true"
 
 def load_metrics():
-    with open(RESULTS_PATH, encoding="utf-8") as f:
+    with open(TRAIN_RESULT, encoding="utf-8") as f:
         return json.load(f)
+
 
 def load_pred_true(currency):
     csv_path = PRED_TRUE_DIR / f"{currency}_pred_true.csv"
@@ -31,6 +21,7 @@ def load_pred_true(currency):
         return None
     df = pd.read_csv(csv_path, index_col=0)
     return df
+
 
 def generate_metrics_table(metrics_dict: dict) -> str:
     rows = []
@@ -58,7 +49,9 @@ def generate_metrics_table(metrics_dict: dict) -> str:
         "</tbody></table></div>"
     )
 
+
 app = FastAPI(title="환율 예측 대시보드")
+
 
 @app.get("/", response_class=HTMLResponse)
 async def home() -> HTMLResponse:
@@ -71,6 +64,7 @@ async def home() -> HTMLResponse:
     </body></html>
     """
     return HTMLResponse(html)
+
 
 @app.get("/train", response_class=HTMLResponse)
 async def train() -> HTMLResponse:
@@ -111,6 +105,7 @@ async def train() -> HTMLResponse:
         fig.to_html(full_html=False, include_plotlyjs="cdn")
         + generate_metrics_table(metrics_dict)
     )
+
 
 @app.get("/train_visual", response_class=HTMLResponse)
 async def train_visual() -> HTMLResponse:
@@ -184,6 +179,7 @@ async def train_visual() -> HTMLResponse:
         + box_fig.to_html(full_html=False, include_plotlyjs=False)
         + scatter_fig.to_html(full_html=False, include_plotlyjs=False)
     )
+
 
 if __name__ == "__main__":
     import uvicorn

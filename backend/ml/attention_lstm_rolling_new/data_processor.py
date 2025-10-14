@@ -5,16 +5,15 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from ..data_merge import create_merged_dataset
 from .constant import (
-    PRED_TRUE_DIR,
     LOOK_BACK,
-    PRED_TRUE_CSV,
     SCALER_DIR,
 )
+
 
 class DataProcessor:
     def __init__(self):
         self.origin_data = create_merged_dataset()
-        
+
         self.origin_data["kr_us_diff"] = (
             self.origin_data["kr_rate"] - self.origin_data["us_rate"]
         )
@@ -24,7 +23,7 @@ class DataProcessor:
         self.origin_data["dgs10_eur10_diff"] = (
             self.origin_data["dgs10"] - self.origin_data["eur10"]
         )
-        
+
         self.targets = ["usd", "cny", "jpy", "eur"]
 
         self.feature_map = {
@@ -58,7 +57,7 @@ class DataProcessor:
             ys.append(y[i + seq_len])
             if y_index is not None:
                 idxs.append(y_index[i + seq_len])
-        
+
         if y_index is not None:
             return np.array(Xs), np.array(ys), np.array(idxs)
         return np.array(Xs), np.array(ys)
@@ -69,10 +68,10 @@ class DataProcessor:
         features_for_target = self.feature_map.get(target)
         if not features_for_target:
             raise ValueError(f"'{target}'에 대한 Feature 목록이 정의되지 않았습니다.")
-            
+
         keep_cols = [target] + features_for_target
         data = data[keep_cols]
-        
+
         self.add_indicators(data=data, target=target)
 
         return data

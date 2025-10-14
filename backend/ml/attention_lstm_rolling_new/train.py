@@ -11,10 +11,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
 from .model import AttentionLSTM
-from .constant import BASE_DIR, LOOK_BACK, MODEL_DIR, PRED_TRUE_DIR
+from .constant import BASE_DIR, MODEL_DIR, PRED_TRUE_DIR, MODEL_FILE_TEMPLATE
 from .data_processor import DataProcessor
-
-PYTORCH_FILE_TEMPLATE = "_attention_lstm.pth"
 
 
 def evaluate_predictions(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
@@ -110,7 +108,7 @@ def train():
                 )
 
     for target in targets:
-        model_path = MODEL_DIR / f"{target}{PYTORCH_FILE_TEMPLATE}"
+        model_path = MODEL_DIR / f"{target}{MODEL_FILE_TEMPLATE}"
         if model_path.exists():
             print(f"✅ {target.upper()} 모델 파일이 이미 존재하므로 학습을 건너뜁니다.")
             if target in existing_results:
@@ -127,7 +125,6 @@ def train():
 
         total_len = len(X_tensor)
         print(f"✅ {target.upper()} 모델 신규 학습 시작 (총 {total_len}개 시퀀스)")
-
 
         for i, (train_idx, test_idx) in enumerate(rolling_split_index(total_len)):
             X_train, y_train = X_tensor[train_idx], y_tensor[train_idx]
