@@ -15,9 +15,9 @@
   - **이지석**: Full-Stack 개발, 배포, 코드 최적화, 아키텍트, GitActions 워크플로우 작성
   - **최홍석**: 리서치, 데이터 수집/전처리, 모델링, 시각화, PPT 작성
 
-## 🛠️ 기술 스택 (Tech Stack)
+## 🛠️ 기술 스택
 
-| Category                          | Technology                                |
+| Category                          | Skills                                    |
 | --------------------------------- | ----------------------------------------- |
 | **Backend**                       | FastAPI, WebSocket                        |
 | **Frontend**                      | React, shadcn/ui, React Query, Zustand    |
@@ -25,7 +25,7 @@
 | **Messaging / Streaming**         | Kafka                                     |
 | **ML / DL**                       | PyTorch, TensorFlow, Scikit-learn, Optuna |
 | **Data Analysis / Visualization** | Pandas, NumPy, Matplotlib, Plotly         |
-| **CI/CD & Containerization**      | Docker, GitHub Actions                    |
+| **CI/CD**                         | Docker, GitHub Actions                    |
 | **Infra / Networking**            | Reverse Proxy (Nginx)                     |
 
 ## 🚀 실행 방법
@@ -52,31 +52,31 @@ docker-compose up -d --build
 
 ## ⚙️ 시스템 아키텍처 및 프로세스
 
-1.  **데이터 수집 (Data Collection)**
+1.  **데이터 수집**
 
-    - `GitHub Actions`를 활용해 매일 지정된 시간에 Python 스크립트(`collector.py`)를 실행하여 환율 & 경제지표를 자동으로 수집합니다.
+    - `GitHub Actions`를 활용해 매일 지정된 시간에 Python 스크립트(`collector.py`, `predictor.py`)를 실행하여 환율 & 경제지표를 자동으로 수집 후 미리 학습해둔 모델로 예측합니다.
 
-2.  **데이터 저장 (Data Storage)**
+2.  **데이터 저장**
 
-    - 수집된 환율 & 경제지표 데이터는 `MongoDB` 데이터베이스에 저장됩니다.
+    - 수집된 환율 & 경제지표 & 예측값 데이터는 `MongoDB` 데이터베이스에 저장됩니다.
+    - 저장된 데이터를 불러올땐 결측치 처리(`ffill`), 데이터 병합 등 분석에 적합한 형태로 가공합니다.
 
-3.  **전처리 및 모델링 (Preprocessing & Modeling)**
+3.  **모델학습**
 
-    - 저장된 데이터를 불러와 결측치 처리(`ffill`), 데이터 병합 등 분석에 적합한 형태로 가공합니다.
-    - **3-Track 모델 비교**: `XGBoost`, 기본 `LSTM`, 그리고 `Attention-LSTM` 세 가지 모델의 성능을 입체적으로 비교 분석했습니다.
+    - **3-Track 모델 비교**: `XGBoost`, `LSTM`, `Attention-LSTM` 세 가지 모델을 학습시켰습니다.
     - 시계열 데이터의 시간적 순서를 유지하며 모델의 안정성을 검증하기 위해 **Rolling Window 교차 검증** 방식을 적용했습니다.
 
-4.  **API 및 대시보드 (API & Dashboard)**
+4.  **대시보드**
 
-    - 모델의 예측 결과를 `FastAPI` 기반의 API 서버를 통해 제공합니다.
-    - 사용자는 `React`로 구현된 인터랙티브 웹 대시보드에서 최신 예측 결과를 시각적으로 확인할 수 있습니다.
+    - `MongoDB`에 저장된 예측값 데이터를 `FastAPI` 기반의 API 서버를 통해 제공합니다.
+    - 사용자는 `React`와 `Chart.js`로 구현된 대시보드에서 최신 예측 결과를 시각적으로 확인할 수 있습니다.
 
 ---
 
 ## 🎯 분석 대상 및 범위
 
 - **예측 대상 통화**: `USD` (달러), `EUR` (유로), `JPY` (엔), `CNY` (위안) 4개 주요 통화.
-- **주요 독립 변수 (Features)**: 각 통화별 특성을 고려하여 다음과 같은 경제 지표를 독립 변수로 설정했습니다.
+- **주요 독립 변수**: 각 통화별 특성을 고려하여 다음과 같은 경제 지표를 독립 변수로 설정했습니다.
   - **USD**: 미 10년물 국채 수익률(DGS10), 변동성 지수(VIX), 달러 지수(DXY), 한/미 기준금리 및 금리차.
   - **EUR**: 유로존 10년물 국채 수익률(EUR10), 달러 지수(DXY), 미/유로존 국채 금리차, VIX.
   - **JPY**: 일 10년물 국채 수익률(JPY10), 미 10년물 국채 수익률(DGS10), 미/일 국채 금리차, VIX.

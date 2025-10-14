@@ -16,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11" # 필요에 따라 버전 변경
+          python-version: "3.11"
 
       - name: Cache pip packages
         uses: actions/cache@v3
@@ -43,6 +43,5 @@ jobs:
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }}
           MONGO_DB_NAME: ${{ secrets.MONGO_DB_NAME }}
-          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
         run: python -m ml.predictor
         working-directory: ./backend

@@ -75,6 +75,6 @@ services:
         echo "Kafka topics created successfully!"
 
   redis:
-    image: redis:8.2.1
+    image: redis:8.2.1-alpine
     ports:
       - "6379:6379"
