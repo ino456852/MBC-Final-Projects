@@ -26,7 +26,7 @@ export function LeftSidebar({ isOpen, visibleItems, setVisibleItems }: LeftSideb
     if (!data) return;
     const items = [
       `${currency.toUpperCase()} - Real`,
-      `Predicted (${model})`,
+      `${model}`,
       ...INDICATOR_COLORS.map((i) => i.key),
     ];
     const obj: Record<string, boolean> = {};
@@ -106,7 +106,7 @@ export function LeftSidebar({ isOpen, visibleItems, setVisibleItems }: LeftSideb
               <CardContent className="flex flex-col gap-2">
                 {[
                   { label: `${currency.toUpperCase()}`, color: "#36A2EB" },
-                  { label: `예측값`, color: "#ef4444" },
+                  { label: `${model}`, color: "#ef4444" },
                   ...INDICATOR_COLORS.map((i) => ({ label: i.key, color: i.color })),
                 ].map((item) => (
                   <label key={item.label} className="flex items-center gap-2">

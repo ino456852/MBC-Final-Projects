@@ -24,8 +24,12 @@ services:
     env_file:
       - ./backend/.env
     depends_on:
-      - kafka
-      - redis
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   kafka:
@@ -45,6 +49,29 @@ services:
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_KRAFT_CLUSTER_ID=MielseielG12lu1ewn1192yA
       - ALLOW_PLAINTEXT_LISTENER=yes
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  kafka-init:
+    image: bitnamilegacy/kafka:4.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Creating Kafka topics..."
+        kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic log-topic --partitions 1 --replication-factor 1
+        kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic chat-topic --partitions 1 --replication-factor 1
+        echo "Kafka topics created successfully!"
 
   redis:
     image: redis:8.2.1

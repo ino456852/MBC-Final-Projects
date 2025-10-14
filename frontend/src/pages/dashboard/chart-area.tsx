@@ -45,13 +45,13 @@ export function ChartArea({ visibleItems }: ChartAreaProps) {
     // 실제 가격
     const realMap = new Map(data.real_prices.map((p: any) => [p.date, p[currency]]));
     datasets.push({
-      label: `${currency.toUpperCase()} - Real`,
+      label: `${currency.toUpperCase()}`,
       data: filteredDates.map((d) => realMap.get(d) ?? null),
       borderColor: "#36A2EB",
       backgroundColor: "transparent",
       tension: 0.3,
       pointRadius: 0,
-      hidden: visibleItems[`${currency.toUpperCase()} - Real`] === false,
+      hidden: visibleItems[`${currency.toUpperCase()}`] === false,
     });
 
     // SMA/EMA
@@ -72,7 +72,7 @@ export function ChartArea({ visibleItems }: ChartAreaProps) {
     // 예측값
     const predictedMap = new Map(data.predicted_prices.map((p: any) => [p.date, p[model]]));
     datasets.push({
-      label: `Predicted (${model})`,
+      label: `${model}`,
       data: filteredDates.map((d) => predictedMap.get(d) ?? null),
       borderColor: "#ef4444",
       backgroundColor: "#ef4444",
@@ -80,7 +80,7 @@ export function ChartArea({ visibleItems }: ChartAreaProps) {
       tension: 0.3,
       pointRadius: 7,
       pointStyle: "triangle",
-      hidden: visibleItems[`Predicted (${model})`] === false,
+      hidden: visibleItems[`${model}`] === false,
     });
 
     return { labels: filteredDates, datasets };
