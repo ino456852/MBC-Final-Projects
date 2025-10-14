@@ -2,8 +2,8 @@ name: ML Daily Jobs
 
 on:
   schedule:
-    - cron: '0 4 * * *'  # 매일 UTC 04:00 → KST 13:00
-  workflow_dispatch:  # 수동 실행도 가능하게 함
+    - cron: "0 4 * * *" # 매일 UTC 04:00 → KST 13:00
+  workflow_dispatch: # 수동 실행도 가능하게 함
 
 jobs:
   run-ml-scripts:
@@ -16,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'  # 필요에 따라 버전 변경
+          python-version: "3.11" # 필요에 따라 버전 변경
 
       - name: Cache pip packages
         uses: actions/cache@v3
@@ -35,11 +35,12 @@ jobs:
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }}
           MONGO_DB_NAME: ${{ secrets.MONGO_DB_NAME }}
-        run: python -m backend.ml.collector
-        
+        run: python -m ml.collector
+        working-directory: ./backend
 
       - name: Run predictor.py
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }}
           MONGO_DB_NAME: ${{ secrets.MONGO_DB_NAME }}
-        run: python -m backend.ml.predictor
+        run: python -m ml.predictor
+        working-directory: ./backend

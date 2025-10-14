@@ -46,6 +46,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/MBC-Final-Projects
-            sudo docker-compose -f docker-compose-prod.yml down
+            sudo docker-compose -f docker-compose-prod.yml down --remove-orphans
             sudo docker-compose -f docker-compose-prod.yml pull
             sudo docker-compose -f docker-compose-prod.yml up -d
