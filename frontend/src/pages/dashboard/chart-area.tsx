@@ -76,10 +76,10 @@ export function ChartArea({ visibleItems }: ChartAreaProps) {
       data: filteredDates.map((d) => predictedMap.get(d) ?? null),
       borderColor: "#ef4444",
       backgroundColor: "#ef4444",
-      borderDash: [5, 5],
+      borderDash: [4, 4],
       tension: 0.3,
       pointRadius: 7,
-      pointStyle: "triangle",
+      pointStyle: "circle",
       hidden: visibleItems[`${model}`] === false,
     });
 
