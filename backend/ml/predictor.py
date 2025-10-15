@@ -1,34 +1,23 @@
 from datetime import datetime
 import pandas as pd
-import ml.lstm_mha_new.predict as lstm_predict
-import ml.attention_lstm_rolling_new.predict as attention_lstm_rolling_predict
-import ml.xgboost_new.predict as XGBoost_predict
+import ml.lstm.predict as lstm_predict
+import ml.lstm_attention.predict as attention_lstm_rolling_predict
+import ml.xgboost.predict as XGBoost_predict
 from .database import MongoDB
 
 
 def insert_predicted_price():
-    # 각 모델별 예측 결과에 index(모델명) 추가
-    results = []
-    # Store the next day's date for prediction
     next_day = (datetime.now() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
 
-    results.append(
-        {"date": next_day, "model": "LSTM-Rolling", **lstm_predict.predict_next_day()}
-    )
-    results.append(
+    results = [
+        {"date": next_day, "model": "LSTM", **lstm_predict.predict_next_day()},
         {
             "date": next_day,
-            "model": "Attention_LSTM-Rolling",
+            "model": "LSTM_Attention",
             **attention_lstm_rolling_predict.predict_next_day(),
-        }
-    )
-    results.append(
-        {
-            "date": next_day,
-            "model": "XGBoost-Rolling",
-            **XGBoost_predict.predict_next_day(),
-        }
-    )
+        },
+        {"date": next_day, "model": "XGBoost", **XGBoost_predict.predict_next_day()},
+    ]
 
     df = pd.DataFrame(results)
     df.set_index("date", inplace=True)

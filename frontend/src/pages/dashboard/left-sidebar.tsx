@@ -57,9 +57,9 @@ export function LeftSidebar({ isOpen, visibleItems, setVisibleItems }: LeftSideb
                 <SelectValue placeholder="모델 선택" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="LSTM-Rolling">LSTM-Rolling</SelectItem>
-                <SelectItem value="Attention_LSTM-Rolling">Attention_LSTM-Rolling</SelectItem>
-                <SelectItem value="XGBoost-Rolling">XGBoost-Rolling</SelectItem>
+                <SelectItem value="LSTM">LSTM</SelectItem>
+                <SelectItem value="LSTM_Attention">LSTM_Attention</SelectItem>
+                <SelectItem value="XGBoost">XGBoost</SelectItem>
               </SelectContent>
             </Select>
           </div>
