@@ -38,7 +38,7 @@ export function ChartArea({ visibleItems }: ChartAreaProps) {
     data.real_prices.forEach((p: any) => allDatesSet.add(p.date));
     data.predicted_prices.forEach((p: any) => allDatesSet.add(p.date));
     const allDates = Array.from(allDatesSet).sort();
-    const filteredDates = period === "recent" ? allDates.slice(-30) : allDates;
+    const filteredDates = period === "recent" ? allDates.slice(-180) : allDates;
 
     const datasets: any[] = [];
 

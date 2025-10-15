@@ -51,15 +51,15 @@ export function LeftSidebar({ isOpen, visibleItems, setVisibleItems }: LeftSideb
         <div className="space-y-4">
           {/* 모델 선택 */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">모델 선택</label>
+            <label className="text-sm font-medium text-foreground">예측 모델 선택</label>
             <Select value={model} onValueChange={setModel}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="모델 선택" />
+                <SelectValue placeholder="예측 모델 선택" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="XGBoost">XGBoost</SelectItem>
                 <SelectItem value="LSTM">LSTM</SelectItem>
                 <SelectItem value="LSTM_Attention">LSTM_Attention</SelectItem>
-                <SelectItem value="XGBoost">XGBoost</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -89,7 +89,7 @@ export function LeftSidebar({ isOpen, visibleItems, setVisibleItems }: LeftSideb
                 variant={period === "recent" ? "secondary" : "outline"}
                 onClick={() => setPeriod("recent")}
               >
-                최근
+                6개월
               </Button>
               <Button
                 variant={period === "all" ? "secondary" : "outline"}
